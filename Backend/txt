@@ -1,0 +1,28 @@
+/*
+1. Live-Cockpit
+  - GET /api/live/cockpit
+  - GET /api/live/trupps
+  -POST /api/live/trupps
+  - PUT /api/live/trupps/:id/druck
+  - DELETE /api/live/trupps/:id
+  - GET /api/live/warnungen
+
+2. Personal
+  - GET /api/personal
+  - POST /api/personal
+  - GET /api/personal/:id
+  - PUT /api/personal/:id
+  - DELETE /api/personal/:id
+
+3. Geräte-Management
+  - GET /api/gerate
+  - POST /api/gerate
+  - PUT /api/gerate/:id
+  - DELETE /api/gerate/:id
+
+4. Admin-Zentrale
+  - GET /api/admin/stats
+  - GET /api/admin/einsatzstunden-chart
+  - GET /api/admin/letzte-einsatze
+  - PUT /api/admin/einstellungen
+*/
