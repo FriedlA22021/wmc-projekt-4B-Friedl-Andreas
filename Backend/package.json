@@ -4,9 +4,7 @@
   "description": "Express Backend fuer die Atemschutzverwaltung",
   "main": "server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "seed": "node src/scripts/resetDatabase.js"
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",

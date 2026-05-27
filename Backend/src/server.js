@@ -43,6 +43,11 @@ let pressureLogs = [...seedData.pressureLogs];
 let alerts = [...seedData.alerts];
 let settings = { ...seedData.settings };
 
+
+app.get('/', (req, res) => {
+  res.json('Hallo Welt');
+});
+
 //1. Live-Cockpit
 app.get('/api/live/cockpit', (req, res) => {
   const activeTeamsCount = teams.filter(t => t.status === 'active' || t.status === 'warning').length;
