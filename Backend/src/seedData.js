@@ -59,7 +59,6 @@ export default {
       status: 'full',
       lastCheck: '2026-03-15',
       nextCheck: '2028-03-15',
-      assignedPersonId: null,
     },
     {
       id: 2,
@@ -70,7 +69,6 @@ export default {
       status: 'full',
       lastCheck: '2026-01-20',
       nextCheck: '2028-01-20',
-      assignedPersonId: null,
     },
     {
       id: 3,
@@ -81,7 +79,6 @@ export default {
       status: 'empty',
       lastCheck: '2026-04-10',
       nextCheck: '2028-04-10',
-      assignedPersonId: null,
     },
     {
       id: 4,
@@ -91,7 +88,6 @@ export default {
       pressure: null,
       status: 'ready',
       lastCleaning: '2026-05-05',
-      assignedPersonId: 1,
     },
     {
       id: 5,
@@ -101,7 +97,6 @@ export default {
       pressure: null,
       status: 'ready',
       lastCleaning: '2026-05-05',
-      assignedPersonId: 2,
     },
     {
       id: 6,
@@ -111,7 +106,6 @@ export default {
       pressure: null,
       status: 'repair',
       lastCleaning: '2026-04-25',
-      assignedPersonId: null,
     },
     {
       id: 7,
@@ -122,7 +116,6 @@ export default {
       status: 'ready',
       lastService: '2026-01-10',
       nextService: '2027-01-10',
-      assignedPersonId: null,
     },
     {
       id: 8,
@@ -133,7 +126,6 @@ export default {
       status: 'in-use',
       lastService: '2026-04-01',
       nextService: '2027-04-01',
-      assignedPersonId: null,
     },
   ],
   incidents: [

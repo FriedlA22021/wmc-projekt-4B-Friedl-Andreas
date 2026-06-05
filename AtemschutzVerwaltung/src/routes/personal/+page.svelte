@@ -15,7 +15,6 @@
   interface BackendPerson {
     id: number;
     name: string;
-
     g26ValidUntil: string;
     lastExerciseAt: string | null;
     exerciseCount: number;
@@ -218,12 +217,6 @@
           class="h-10 w-full rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
-      <button
-        class="flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted"
-      >
-        <Filter class="h-4 w-4" />
-        Filter
-      </button>
     </div>
 
     <div class="overflow-hidden rounded-xl border border-border bg-card">
