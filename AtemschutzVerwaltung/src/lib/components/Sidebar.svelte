@@ -28,12 +28,6 @@
       label: 'Geräte',
       description: 'Inventar & Logistik',
     },
-    {
-      href: '/admin',
-      icon: Settings,
-      label: 'Admin',
-      description: 'Einstellungen',
-    },
   ];
 </script>
 

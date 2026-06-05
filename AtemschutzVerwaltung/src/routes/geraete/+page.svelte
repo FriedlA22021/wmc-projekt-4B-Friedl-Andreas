@@ -14,6 +14,7 @@
     CalendarCheck,
     Wrench,
     Sparkles,
+    X,
   } from 'lucide-svelte';
 
   type TabType = 'flaschen' | 'masken' | 'geraete';
@@ -23,6 +24,16 @@
 
   let allEquipment = $state<any[]>([]);
   let isLoading = $state(true);
+
+  // --- State für das "Neues Gerät"-Modal ---
+  let isModalOpen = $state(false);
+  let newDeviceCategory = $state<'cylinder' | 'mask' | 'breathing_apparatus'>(
+    'cylinder',
+  );
+  let newDeviceInventoryNumber = $state('');
+  let newDeviceType = $state('');
+  let newDevicePressure = $state<number | null>(300);
+  let newDeviceStatus = $state('ready');
 
   // Daten vom Backend laden
   async function loadData() {
@@ -49,12 +60,58 @@
         body: JSON.stringify(updatedFields),
       });
       if (res.ok) {
-        // Lokalen State mit der Antwort vom Server aktualisieren
         const updatedItem = await res.json();
         allEquipment = allEquipment.map((e) => (e.id === id ? updatedItem : e));
       }
     } catch (error) {
       console.error('Fehler beim Aktualisieren des Geräts:', error);
+    }
+  }
+
+  // Neues Gerät an das Backend senden (POST)
+  async function handleCreateDevice(e: Event) {
+    e.preventDefault();
+    if (!newDeviceInventoryNumber.trim()) {
+      alert('Bitte eine Inventarnummer eingeben.');
+      return;
+    }
+
+    const payload = {
+      inventoryNumber: newDeviceInventoryNumber,
+      category: newDeviceCategory,
+      type: newDeviceType,
+      pressure: newDeviceCategory === 'cylinder' ? newDevicePressure : null,
+      status: newDeviceStatus,
+    };
+
+    try {
+      const res = await fetch('http://localhost:3000/api/gerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const createdItem = await res.json();
+        allEquipment = [...allEquipment, createdItem];
+
+        // Modal zurücksetzen und schließen
+        isModalOpen = false;
+        newDeviceInventoryNumber = '';
+        newDeviceType = '';
+        newDevicePressure = 300;
+        newDeviceStatus = 'ready';
+
+        // Tab automatisch wechseln, um das neue Gerät zu sehen
+        if (newDeviceCategory === 'cylinder') activeTab = 'flaschen';
+        if (newDeviceCategory === 'mask') activeTab = 'masken';
+        if (newDeviceCategory === 'breathing_apparatus') activeTab = 'geraete';
+      } else {
+        const errData = await res.json();
+        alert(`Fehler: ${errData.error}`);
+      }
+    } catch (error) {
+      console.error('Fehler beim Erstellen des Geräts:', error);
     }
   }
 
@@ -74,8 +131,6 @@
   }
 
   // --- Spezifische Button-Aktionen ---
-
-  // 1. Flaschen-Aktionen
   function toggleFlascheStatus(flasche: any) {
     const nextStatus = flasche.status === 'full' ? 'empty' : 'full';
     const nextPressure = nextStatus === 'full' ? 300 : 0;
@@ -85,11 +140,10 @@
   function handleFlaschePruefung(id: number) {
     updateEquipment(id, {
       lastCheck: getTodayString(),
-      nextCheck: getTodayString(5), // Heute + 5 Jahre
+      nextCheck: getTodayString(5),
     });
   }
 
-  // 2. Masken-Aktionen
   function toggleMaskeStatus(maske: any) {
     const nextStatus = maske.status === 'ready' ? 'repair' : 'ready';
     updateEquipment(maske.id, { status: nextStatus });
@@ -99,7 +153,6 @@
     updateEquipment(id, { lastCleaning: getTodayString() });
   }
 
-  // 3. Pressluftatmer-Aktionen
   function toggleGeraetStatus(geraet: any) {
     const nextStatus = geraet.status === 'ready' ? 'service' : 'ready';
     updateEquipment(geraet.id, { status: nextStatus });
@@ -108,7 +161,7 @@
   function handleGeraetWartung(id: number) {
     updateEquipment(id, {
       lastService: getTodayString(),
-      nextService: getTodayString(1), // Heute + 1 Jahr
+      nextService: getTodayString(1),
     });
   }
 
@@ -165,16 +218,13 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-foreground">Geräte-Management</h1>
-      <p class="text-muted-foreground">
-        Inventar und Logistik für Atemschutzausrüstung
-      </p>
     </div>
     <div class="flex items-center gap-2">
       <button
-        class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        onclick={() => (isModalOpen = true)}
+        class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
       >
-        <Plus class="h-4 w-4" />
-        Neues Gerät
+        + Neues Gerät
       </button>
     </div>
   </div>
@@ -233,11 +283,13 @@
               <button
                 onclick={() => toggleFlascheStatus(flasche)}
                 class="rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-transform active:scale-95 {flasche.status ===
-                'full'
+                  'full' || flasche.status === 'ready'
                   ? 'bg-success/10 text-success border border-success/20'
                   : 'bg-muted text-muted-foreground border border-transparent'}"
               >
-                {flasche.status === 'full' ? '🟢 Voll' : '⚪ Leer'}
+                {flasche.status === 'full' || flasche.status === 'ready'
+                  ? '🟢 Einsatzbereit'
+                  : '🔴 Außer Dienst'}
               </button>
             </div>
 
@@ -399,3 +451,173 @@
     </div>
   {/if}
 </div>
+
+{#if isModalOpen}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+  >
+    <div
+      class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-150"
+    >
+      <div
+        class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4"
+      >
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          Neues Gerät erfassen
+        </h2>
+        <button
+          onclick={() => (isModalOpen = false)}
+          class="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition-colors hover:bg-slate-100 cursor-pointer"
+        >
+          <X class="h-5 w-5" />
+        </button>
+      </div>
+
+      <form onsubmit={handleCreateDevice} class="space-y-4">
+        <div>
+          <label
+            class="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-wider"
+            >Gerätetyp wählen</label
+          >
+          <div class="grid grid-cols-3 gap-2">
+            <label
+              class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
+              'cylinder'
+                ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+            >
+              <input
+                type="radio"
+                name="category"
+                value="cylinder"
+                bind:group={newDeviceCategory}
+                class="sr-only"
+              />
+              <Cylinder class="h-5 w-5" />
+              Flasche
+            </label>
+            <label
+              class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
+              'mask'
+                ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+            >
+              <input
+                type="radio"
+                name="category"
+                value="mask"
+                bind:group={newDeviceCategory}
+                class="sr-only"
+              />
+              <Shield class="h-5 w-5" />
+              Maske
+            </label>
+            <label
+              class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
+              'breathing_apparatus'
+                ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+            >
+              <input
+                type="radio"
+                name="category"
+                value="breathing_apparatus"
+                bind:group={newDeviceCategory}
+                class="sr-only"
+              />
+              <Droplets class="h-5 w-5" />
+              PA-Gerät
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label
+            for="invNum"
+            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+            >Inventarnummer *</label
+          >
+          <input
+            id="invNum"
+            type="text"
+            bind:value={newDeviceInventoryNumber}
+            placeholder="z.B. AS-FL-2024"
+            required
+            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+          />
+        </div>
+
+        <div>
+          <label
+            for="devType"
+            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+            >Typ / Modell</label
+          >
+          <input
+            id="devType"
+            type="text"
+            bind:value={newDeviceType}
+            placeholder={newDeviceCategory === 'cylinder'
+              ? 'z.B. 6L Stahl'
+              : newDeviceCategory === 'mask'
+                ? 'z.B. FPS 7000'
+                : 'z.B. PSS 4000'}
+            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+          />
+        </div>
+
+        {#if newDeviceCategory === 'cylinder'}
+          <div class="animate-in slide-in-from-top-2 duration-200">
+            <label
+              for="pressure"
+              class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+              >Fülldruck (Bar)</label
+            >
+            <input
+              id="pressure"
+              type="number"
+              min="0"
+              max="350"
+              bind:value={newDevicePressure}
+              class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+            />
+          </div>
+        {/if}
+
+        <div>
+          <label
+            for="status"
+            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+            >Zustand</label
+          >
+          <select
+            id="status"
+            bind:value={newDeviceStatus}
+            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+          >
+            <option value="ready">🟢 Einsatzbereit</option>
+            <option value="service">🔴 Außer Dienst</option>
+          </select>
+        </div>
+
+        <div
+          class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 mt-6"
+        >
+          <button
+            type="button"
+            onclick={() => (isModalOpen = false)}
+            class="rounded-lg bg-slate-100 border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95 cursor-pointer"
+          >
+            Gerät speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
