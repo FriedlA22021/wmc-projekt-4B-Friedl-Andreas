@@ -2,19 +2,21 @@
   import { onMount } from 'svelte';
   import {
     Search,
-    Filter,
     UserPlus,
-    TrendingUp,
-    Calendar,
     CheckCircle,
     AlertTriangle,
     XCircle,
     Loader2,
+    X,
+    Save,
+    User,
   } from 'lucide-svelte';
 
   interface BackendPerson {
     id: number;
     name: string;
+    role: string;
+    radioName: string;
     g26ValidUntil: string;
     lastExerciseAt: string | null;
     exerciseCount: number;
@@ -25,12 +27,25 @@
 
   let personnel = $state<BackendPerson[]>([]);
   let isLoading = $state(true);
+  let isSaving = $state(false);
   let errorMessage = $state('');
   let searchQuery = $state('');
   let selectedStatus = $state<'all' | 'valid' | 'expiring' | 'expired'>('all');
 
+  // --- State für das Modal ---
+  let isModalOpen = $state(false);
+  let newName = $state('');
+  let newRole = $state('Truppmann');
+  let newRadioName = $state('');
+  let newG26 = $state('');
+
   onMount(async () => {
+    loadData();
+  });
+
+  async function loadData() {
     try {
+      isLoading = true;
       const res = await fetch(BASE_URL);
       if (!res.ok) throw new Error('Fehler beim Abrufen der Personaldaten.');
       personnel = await res.json();
@@ -39,22 +54,18 @@
     } finally {
       isLoading = false;
     }
-  });
+  }
 
   function getG26Status(
     validUntilStr: string,
   ): 'valid' | 'expiring' | 'expired' {
     if (!validUntilStr) return 'expired';
-
     const validUntil = new Date(validUntilStr);
     const now = new Date();
     const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000;
-
-    if (validUntil < now) {
-      return 'expired';
-    } else if (validUntil.getTime() - now.getTime() < threeMonthsInMs) {
+    if (validUntil < now) return 'expired';
+    if (validUntil.getTime() - now.getTime() < threeMonthsInMs)
       return 'expiring';
-    }
     return 'valid';
   }
 
@@ -97,7 +108,7 @@
   const statusConfig = {
     valid: {
       icon: CheckCircle,
-      color: 'green',
+      color: 'text-success',
       bg: 'bg-success/10',
       label: 'Gültig',
     },
@@ -115,7 +126,44 @@
     },
   };
 
-  async function handleAddPerson() {}
+  // --- Logik zum Hinzufügen ---
+  function openModal() {
+    isModalOpen = true;
+  }
+
+  async function handleSavePerson(e: Event) {
+    e.preventDefault();
+    if (!newName) return;
+
+    isSaving = true;
+    try {
+      const res = await fetch(BASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          role: newRole,
+          radioName: newRadioName,
+          g26ValidUntil: newG26,
+        }),
+      });
+
+      if (res.ok) {
+        const savedPerson = await res.json();
+        personnel = [...personnel, savedPerson];
+        isModalOpen = false;
+        // Reset
+        newName = '';
+        newRole = 'Truppmann';
+        newRadioName = '';
+        newG26 = '';
+      }
+    } catch (err) {
+      console.error('Speichern fehlgeschlagen', err);
+    } finally {
+      isSaving = false;
+    }
+  }
 </script>
 
 <div class="space-y-6">
@@ -124,13 +172,10 @@
       <h1 class="text-2xl font-bold text-foreground">
         Personal & Tauglichkeit
       </h1>
-      <p class="text-muted-foreground">
-        Übersicht aller Atemschutzgeräteträger (Live-Daten)
-      </p>
     </div>
     <button
-      onclick={handleAddPerson}
-      class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      onclick={openModal}
+      class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
     >
       <UserPlus class="h-4 w-4" />
       Neue Person
@@ -220,23 +265,23 @@
     </div>
 
     <div class="overflow-hidden rounded-xl border border-border bg-card">
-      <table class="w-full">
+      <table class="w-full text-sm">
         <thead class="border-b border-border bg-secondary/50">
           <tr>
             <th
-              class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
-              >Name</th
+              class="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-xs"
+              >Name / Funk</th
             >
             <th
-              class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              class="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-xs"
               >Atemschutztauglichkeit</th
             >
             <th
-              class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              class="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-xs"
               >Gültig bis</th
             >
             <th
-              class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              class="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-xs"
               >Übungen</th
             >
           </tr>
@@ -250,7 +295,7 @@
               <td class="px-4 py-4">
                 <div class="flex items-center gap-3">
                   <div
-                    class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary uppercase"
                   >
                     {person.name
                       .split(' ')
@@ -262,12 +307,11 @@
                       >{person.name}</span
                     >
                     <span class="text-xs text-muted-foreground"
-                      >{person.role}</span
+                      >{person.radioName || person.role}</span
                     >
                   </div>
                 </div>
               </td>
-
               <td class="px-4 py-4">
                 <span
                   class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium {statusUi.bg} {statusUi.color}"
@@ -276,34 +320,104 @@
                   {statusUi.label}
                 </span>
               </td>
+              <td class="px-4 py-4 font-mono text-xs"
+                >{formatDate(person.g26ValidUntil)}</td
+              >
               <td class="px-4 py-4">
-                <div class="flex items-center gap-2 text-sm">
-                  <span class="text-foreground"
-                    >{formatDate(person.g26ValidUntil)}</span
-                  >
-                </div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="flex items-center gap-2 text-sm">
-                  <span class="text-foreground"
-                    >{person.exerciseCount} / Jahr</span
-                  >
-                </div>
+                <span
+                  class="px-2 py-1 rounded bg-secondary text-foreground text-xs font-medium"
+                  >{person.exerciseCount} / Jahr</span
+                >
               </td>
             </tr>
           {/each}
-          {#if filteredPersonnel.length === 0}
-            <tr>
-              <td
-                colspan="4"
-                class="px-4 py-8 text-center text-sm text-muted-foreground"
-              >
-                Keine Einsatzkräfte gefunden.
-              </td>
-            </tr>
-          {/if}
         </tbody>
       </table>
     </div>
   {/if}
 </div>
+
+{#if isModalOpen}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+  >
+    <div
+      class="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-150"
+    >
+      <div
+        class="flex items-center justify-between border-b border-border pb-3 mb-4"
+      >
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <UserPlus class="h-5 w-5 text-primary" /> Neue Einsatzkraft
+        </h2>
+        <button
+          onclick={() => (isModalOpen = false)}
+          class="text-muted-foreground hover:text-foreground rounded-lg p-1 transition-colors hover:bg-slate-100 cursor-pointer"
+        >
+          <X class="h-5 w-5" />
+        </button>
+      </div>
+
+      <form onsubmit={handleSavePerson} class="space-y-4">
+        <div>
+          <label
+            for="name"
+            class="text-xs font-semibold text-slate-500 block mb-1 uppercase"
+            >Name der Person *</label
+          >
+          <div class="relative">
+            <User
+              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              id="name"
+              type="text"
+              bind:value={newName}
+              placeholder="z.B. Max Mustermann"
+              required
+              class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            for="g26"
+            class="text-xs font-semibold text-slate-500 block mb-1 uppercase"
+            >Atemschutztauglichkeit gültig bis</label
+          >
+          <input
+            id="g26"
+            type="date"
+            bind:value={newG26}
+            required
+            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div
+          class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 mt-6"
+        >
+          <button
+            type="button"
+            onclick={() => (isModalOpen = false)}
+            class="rounded-lg bg-slate-100 border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+          >
+            {#if isSaving}
+              Speichere...
+            {:else}
+              Person speichern
+            {/if}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
