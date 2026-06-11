@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import http from 'http'; // Neu: Wird für WebSockets benötigt
-import { WebSocketServer } from 'ws'; // Neu: Das ws-Paket
+import http from 'http';
+import { WebSocketServer } from 'ws';
 import seedData from './seedData.js';
 
 const app = express();
@@ -9,17 +9,13 @@ app.use(express.json());
 app.use(cors());
 const PORT = 3000;
 
-// Erstelle einen HTTP-Server aus der Express-App
 const server = http.createServer(app);
 
-// Erstelle den WebSocket-Server auf dem Pfad '/live'
 const wss = new WebSocketServer({ noServer: true });
 
-// Variablen aus den Seed-Daten laden mit Sicherheits-Fallbacks
 let personnel = seedData.personnel ? [...seedData.personnel] : [];
 let equipment = seedData.equipment ? [...seedData.equipment] : [];
 
-// Sicherheits-Fallback für die in seedData fehlenden Arrays (verhindert den "not iterable" Fehler):
 let incidents = seedData.incidents ? [...seedData.incidents] : [];
 let pressureLogs = seedData.pressureLogs ? [...seedData.pressureLogs] : [];
 let alerts = seedData.alerts ? [...seedData.alerts] : [];
@@ -29,9 +25,7 @@ let settings = seedData.settings ? { ...seedData.settings } : {
   warningPressureBar: 60
 };
 
-// Spezial-Mapping für die Teams, damit die IDs einheitlich sind:
 let teams = seedData.teams ? seedData.teams.map(t => {
-  // Falls im Seed-Team 'memberIds' statt 'members' steht, mappen wir das für dein Frontend zu Klarnamen
   const idsToMap = t.memberIds || t.members || [];
   const memberNames = idsToMap.map(id => {
     const person = personnel.find(p => p.id === id);
@@ -41,7 +35,7 @@ let teams = seedData.teams ? seedData.teams.map(t => {
   return {
     id: parseInt(t.id),
     name: t.name,
-    members: memberNames, // Dein Svelte-Frontend bekommt so saubere Strings geliefert
+    members: memberNames,
     startPressure: parseInt(t.startPressure) || 300,
     currentPressure: parseInt(t.currentPressure) || 300,
     startTime: t.startedAt ? Date.parse(t.startedAt) : Date.now(),
@@ -49,14 +43,12 @@ let teams = seedData.teams ? seedData.teams.map(t => {
     status: t.status || 'active'
   };
 }) : [];
-// --- WEBSOCKET LOGIK ---
 const clients = new Set();
 
 wss.on('connection', (ws) => {
   clients.add(ws);
   console.log(`Client verbunden. Aktive Verbindungen: ${clients.size}`);
 
-  // Sende dem neu verbundenen Client sofort die aktuellen Trupps
   const activeTeams = teams.filter(t => t.status !== 'ended');
   ws.send(JSON.stringify(activeTeams));
 
@@ -66,7 +58,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Hilfsfunktion: Schickt die aktuellen Trupps an ALLE angemeldeten Frontends
 function broadcastTeams() {
   const activeTeams = teams.filter(t => t.status !== 'ended');
   const data = JSON.stringify(activeTeams);
