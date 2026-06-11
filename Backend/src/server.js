@@ -49,103 +49,88 @@ app.get('/', (req, res) => {
 });
 
 //1. Live-Cockpit
-app.get('/api/live/cockpit', (req, res) => {
-  const activeTeamsCount = teams.filter(t => t.status === 'active' || t.status === 'warning').length;
-  const criticalAlertsCount = alerts.filter(a => a.type === 'warning' && !a.acknowledged).length;
+// 1. Live-Cockpit & Truppverwaltung
 
-  res.json({
-    activeTeams: activeTeamsCount,
-    warningsCount: criticalAlertsCount,
-    currentIncident: incidents.find(i => i.status === 'active') || null
-  });
-});
-
+// Alle aktiven Trupps abrufen
 app.get('/api/live/trupps', (req, res) => {
+  // Gibt nur Trupps zurück, die nicht beendet (ended) sind
   const activeTeams = teams.filter(t => t.status !== 'ended');
   res.json(activeTeams);
 });
 
+// Neuen Trupp erstellen
 app.post('/api/live/trupps', (req, res) => {
-  const { name, memberIds, equipmentIds, startPressure } = req.body;
+  const { name, members, startPressure } = req.body;
 
-  if (!memberIds || memberIds.length !== 3) {
-    return res.status(400).json({ error: "Ein Trupp muss genau aus 3 Atemschutzträgern bestehen." });
+  if (!members || members.length < 2) {
+    return res.status(400).json({ error: "Ein Trupp muss aus mindestens 2 Personen bestehen." });
   }
 
-  const newTeam = {
+  const newTrupp = {
     id: teams.length > 0 ? Math.max(...teams.map(t => t.id)) + 1 : 1,
-    incidentId: incidents.find(i => i.status === 'active')?.id || 1,
     name: name || `Trupp ${teams.length + 1}`,
-    status: 'active',
-    memberIds: memberIds,
-    equipmentIds: equipmentIds || [],
-    startPressure: startPressure || settings.defaultStartPressure,
-    currentPressure: startPressure || settings.defaultStartPressure,
-    reservePressure: settings.defaultReservePressure,
-    startedAt: new Date().toISOString(),
-    endedAt: null
+    members,
+    startPressure: parseInt(startPressure) || 300,
+    currentPressure: parseInt(startPressure) || 300,
+    startTime: Date.now(), // Absolutzeit als Timestamp
+    lastCheckTime: Date.now(),
+    status: 'active'
   };
 
-  teams.push(newTeam);
-  res.status(201).json(newTeam);
+  teams.push(newTrupp);
+  res.status(201).json(newTrupp);
 });
 
+// Druck aktualisieren
 app.put('/api/live/trupps/:id/druck', (req, res) => {
   const teamId = parseInt(req.params.id);
-  const { pressure } = req.body;
+  const { currentPressure } = req.body;
+  const trupp = teams.find(t => t.id === teamId);
 
-  if (pressure === undefined) {
-    return res.status(400).json({ error: "Druck-Wert 'pressure' fehlt im Body." });
-  }
+  if (!trupp) return res.status(404).json({ error: "Trupp nicht gefunden." });
 
-  const team = teams.find(t => t.id === teamId);
-  if (!team) {
-    return res.status(404).json({ error: "Trupp nicht gefunden." });
-  }
+  trupp.currentPressure = parseInt(currentPressure);
+  trupp.lastCheckTime = Date.now();
+  trupp.status = trupp.currentPressure < 100 ? 'warning' : 'active';
 
-  team.currentPressure = pressure;
-
-  if (pressure <= team.reservePressure) {
-    team.status = 'warning';
-  }
-
-  const newLog = {
-    id: pressureLogs.length > 0 ? Math.max(...pressureLogs.map(p => p.id)) + 1 : 1,
-    teamId: teamId,
-    pressure: pressure,
-    recordedAt: new Date().toISOString()
-  };
-  pressureLogs.push(newLog);
-
-  res.json(team);
+  res.json(trupp);
 });
 
+// Trupp löschen / Einsatz beenden
 app.delete('/api/live/trupps/:id', (req, res) => {
   const teamId = parseInt(req.params.id);
-  const team = teams.find(t => t.id === teamId);
+  const index = teams.findIndex(t => t.id === teamId);
 
-  if (!team) {
+  if (index === -1) {
     return res.status(404).json({ error: "Trupp nicht gefunden." });
   }
 
-  team.status = 'ended';
-  team.endedAt = new Date().toISOString();
-
-  res.json({ message: `Einsatz für ${team.name} erfolgreich beendet.`, team });
+  // Löscht den Trupp komplett aus dem aktiven Array
+  teams.splice(index, 1);
+  res.json({ message: `Trupp erfolgreich gelöscht.`, id: teamId });
 });
+app.post('/api/live/warnungen', (req, res) => {
+  const { teamId, message, type } = req.body;
 
-app.get('/api/live/warnungen', (req, res) => {
-  res.json(alerts);
+  const newAlert = {
+    id: alerts.length > 0 ? Math.max(...alerts.map(a => a.id)) + 1 : 1,
+    teamId: teamId,
+    message: message || "Druck überprüfen!",
+    type: type || "warning",
+    timestamp: new Date().toISOString(),
+    acknowledged: false
+  };
+
+  alerts.push(newAlert);
+  res.status(201).json(newAlert);
 });
-
-
 // 2. Personal & Tauglichkeit
 app.get('/api/personal', (req, res) => {
   res.json(personnel);
 });
 
 app.post('/api/personal', (req, res) => {
-  const { name, role, radioName, g26ValidUntil } = req.body;
+  const { name, radioName, g26ValidUntil } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: "Name ist ein Pflichtfeld." });
@@ -154,7 +139,6 @@ app.post('/api/personal', (req, res) => {
   const newPerson = {
     id: personnel.length > 0 ? Math.max(...personnel.map(p => p.id)) + 1 : 1,
     name,
-    role: role || 'Truppmann',
     radioName: radioName || '',
     g26ValidUntil: g26ValidUntil || '',
     lastExerciseAt: null,

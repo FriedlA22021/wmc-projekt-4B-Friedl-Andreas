@@ -8,14 +8,14 @@
     XCircle,
     Loader2,
     X,
-    Save,
     User,
+    Trash2,
+    CalendarPlus,
   } from 'lucide-svelte';
 
   interface BackendPerson {
     id: number;
     name: string;
-    role: string;
     radioName: string;
     g26ValidUntil: string;
     lastExerciseAt: string | null;
@@ -32,12 +32,13 @@
   let searchQuery = $state('');
   let selectedStatus = $state<'all' | 'valid' | 'expiring' | 'expired'>('all');
 
-  // --- State für das Modal ---
   let isModalOpen = $state(false);
   let newName = $state('');
-  let newRole = $state('Truppmann');
   let newRadioName = $state('');
   let newG26 = $state('');
+
+  let isDeleteModalOpen = $state(false);
+  let personToDelete = $state<{ id: number; name: string } | null>(null);
 
   onMount(async () => {
     loadData();
@@ -79,6 +80,64 @@
       });
     } catch {
       return dateStr;
+    }
+  }
+
+  function openDeleteModal(id: number, name: string) {
+    personToDelete = { id, name };
+    isDeleteModalOpen = true;
+  }
+
+  function closeDeleteModal() {
+    personToDelete = null;
+    isDeleteModalOpen = false;
+  }
+
+  async function confirmDeletePerson() {
+    if (!personToDelete) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/${personToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        personnel = personnel.filter((p) => p.id !== personToDelete!.id);
+        closeDeleteModal();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || 'Fehler beim Löschen im Backend.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Verbindung zum Server fehlgeschlagen.');
+    }
+  }
+
+  async function extendG26(id: number) {
+    const person = personnel.find((p) => p.id === id);
+    if (!person) return;
+
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 5);
+    const formattedIsoDate = newDate.toISOString().split('T')[0];
+
+    try {
+      const res = await fetch(`${BASE_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ g26ValidUntil: formattedIsoDate }),
+      });
+
+      if (res.ok) {
+        const updatedPerson = await res.json();
+        personnel = personnel.map((p) => (p.id === id ? updatedPerson : p));
+      } else {
+        alert('Fehler beim Aktualisieren der Tauglichkeit.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Verbindung zum Server fehlgeschlagen.');
     }
   }
 
@@ -126,7 +185,6 @@
     },
   };
 
-  // --- Logik zum Hinzufügen ---
   function openModal() {
     isModalOpen = true;
   }
@@ -142,7 +200,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newName,
-          role: newRole,
           radioName: newRadioName,
           g26ValidUntil: newG26,
         }),
@@ -152,14 +209,12 @@
         const savedPerson = await res.json();
         personnel = [...personnel, savedPerson];
         isModalOpen = false;
-        // Reset
         newName = '';
-        newRole = 'Truppmann';
         newRadioName = '';
         newG26 = '';
       }
     } catch (err) {
-      console.error('Speichern fehlgeschlagen', err);
+      console.error(err);
     } finally {
       isSaving = false;
     }
@@ -281,8 +336,8 @@
               >Gültig bis</th
             >
             <th
-              class="px-4 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider text-xs"
-              >Übungen</th
+              class="px-4 py-3 text-right font-medium text-muted-foreground uppercase tracking-wider text-xs w-16"
+              >Aktionen</th
             >
           </tr>
         </thead>
@@ -306,9 +361,6 @@
                     <span class="block font-medium text-foreground"
                       >{person.name}</span
                     >
-                    <span class="text-xs text-muted-foreground"
-                      >{person.radioName || person.role}</span
-                    >
                   </div>
                 </div>
               </td>
@@ -320,14 +372,26 @@
                   {statusUi.label}
                 </span>
               </td>
-              <td class="px-4 py-4 font-mono text-xs"
-                >{formatDate(person.g26ValidUntil)}</td
-              >
-              <td class="px-4 py-4">
-                <span
-                  class="px-2 py-1 rounded bg-secondary text-foreground text-xs font-medium"
-                  >{person.exerciseCount} / Jahr</span
+              <td class="px-4 py-4 font-mono text-xs">
+                <div class="flex items-center gap-3">
+                  <span>{formatDate(person.g26ValidUntil)}</span>
+                  <button
+                    onclick={() => extendG26(person.id)}
+                    class="p-1 rounded bg-secondary hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors cursor-pointer"
+                    title="Ab heute um 5 Jahre verlängern"
+                  >
+                    <CalendarPlus class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </td>
+              <td class="px-4 py-4 text-right">
+                <button
+                  onclick={() => openDeleteModal(person.id, person.name)}
+                  class="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                  title="{person.name} löschen"
                 >
+                  <Trash2 class="h-4 w-4" />
+                </button>
               </td>
             </tr>
           {/each}
@@ -402,22 +466,61 @@
             type="button"
             onclick={() => (isModalOpen = false)}
             class="rounded-lg bg-slate-100 border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+            >Abbrechen</button
           >
-            Abbrechen
-          </button>
           <button
             type="submit"
             disabled={isSaving}
             class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
           >
-            {#if isSaving}
-              Speichere...
-            {:else}
-              Person speichern
-            {/if}
+            {isSaving ? 'Speichere...' : 'Person speichern'}
           </button>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+{#if isDeleteModalOpen && personToDelete}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+  >
+    <div
+      class="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-150"
+    >
+      <div class="flex items-center gap-3 text-destructive mb-4">
+        <div class="p-2 bg-destructive/10 rounded-full">
+          <Trash2 class="h-6 w-6" />
+        </div>
+        <h2 class="text-lg font-bold text-slate-900">Einsatzkraft löschen</h2>
+      </div>
+
+      <div class="space-y-3 mb-6">
+        <p class="text-sm text-slate-600">
+          Bist du sicher, dass du die Person <strong class="text-slate-900"
+            >"{personToDelete.name}"</strong
+          > dauerhaft aus der Datenbank entfernen möchtest?
+        </p>
+      </div>
+
+      <div
+        class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4"
+      >
+        <button
+          type="button"
+          onclick={closeDeleteModal}
+          class="rounded-lg bg-slate-100 border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+        >
+          Abbrechen
+        </button>
+        <button
+          type="button"
+          onclick={confirmDeletePerson}
+          class="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 cursor-pointer"
+        >
+          Ja
+        </button>
+      </div>
     </div>
   </div>
 {/if}
