@@ -69,50 +69,14 @@
 
     async function loadData() {
         try {
-            // 1. Zuerst Personalstamm laden, damit wir IDs in Namen auflösen können
             const resPers = await fetch(PERSONAL_URL);
-            let personnelData: BackendPerson[] = [];
             if (resPers.ok) {
-                personnelData = await resPers.json();
-                backendPersonnel = personnelData;
+                backendPersonnel = await resPers.json();
             }
 
-            // 2. Jetzt Trupps laden
             const resTrupps = await fetch(TRUPPS_URL);
             if (resTrupps.ok) {
-                const rawTeams = await resTrupps.json();
-
-                // MAPPER: Wir passen die Backend-Struktur an das Svelte-Frontend an
-                trupps = rawTeams.map((team: any) => {
-                    // Falls memberIds existieren, mappen wir sie zu echten Namen
-                    let mappedMembers: string[] = [];
-                    if (team.memberIds && Array.isArray(team.memberIds)) {
-                        mappedMembers = team.memberIds.map((id: number) => {
-                            const p = personnelData.find(
-                                (pers) => pers.id === id,
-                            );
-                            return p ? p.name : `Unbekannt (${id})`;
-                        });
-                    } else if (team.members) {
-                        mappedMembers = team.members;
-                    }
-
-                    return {
-                        id: team.id,
-                        name: team.name,
-                        members: mappedMembers,
-                        startPressure: team.startPressure || 300,
-                        currentPressure: team.currentPressure || 300,
-                        // Konvertiert ISO-String (Backend) oder fallbacksicher zu Timestamp
-                        startTime: team.startedAt
-                            ? new Date(team.startedAt).getTime()
-                            : team.startTime || Date.now(),
-                        lastCheckTime: team.lastCheckTime
-                            ? team.lastCheckTime
-                            : Date.now(),
-                        status: team.status || 'active',
-                    };
-                });
+                trupps = await resTrupps.json();
             }
         } catch (err) {
             console.error('Fehler beim Laden der Live-Daten:', err);
@@ -291,7 +255,11 @@
                                 )}
                             class="clickable-card cursor-pointer w-full text-left focus:outline-none"
                         >
-                            <TruppCard {trupp} onDelete={deleteTrupp} />
+                            <TruppCard
+                                {trupp}
+                                allMembers={backendPersonnel}
+                                onDelete={deleteTrupp}
+                            />
                         </div>
 
                         <div class="mt-1 px-1">

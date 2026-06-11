@@ -51,14 +51,11 @@ app.get('/', (req, res) => {
 //1. Live-Cockpit
 // 1. Live-Cockpit & Truppverwaltung
 
-// Alle aktiven Trupps abrufen
 app.get('/api/live/trupps', (req, res) => {
-  // Gibt nur Trupps zurück, die nicht beendet (ended) sind
   const activeTeams = teams.filter(t => t.status !== 'ended');
   res.json(activeTeams);
 });
 
-// Neuen Trupp erstellen
 app.post('/api/live/trupps', (req, res) => {
   const { name, members, startPressure } = req.body;
 
