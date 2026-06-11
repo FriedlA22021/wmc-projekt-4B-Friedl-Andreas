@@ -1,55 +1,97 @@
 import express from 'express';
 import cors from 'cors';
+import http from 'http'; // Neu: Wird für WebSockets benötigt
+import { WebSocketServer } from 'ws'; // Neu: Das ws-Paket
 import seedData from './seedData.js';
+
 const app = express();
 app.use(express.json());
 app.use(cors());
 const PORT = 3000;
 
-/*
-1. Live-Cockpit
-  - GET /api/live/cockpit
-  - GET /api/live/trupps
-  - POST /api/live/trupps
-  - PUT /api/live/trupps/:id/druck
-  - DELETE /api/live/trupps/:id
-  - GET /api/live/warnungen
+// Erstelle einen HTTP-Server aus der Express-App
+const server = http.createServer(app);
 
-2. Personal
-  - GET /api/personal
-  - POST /api/personal
-  - GET /api/personal/:id
-  - PUT /api/personal/:id
-  - DELETE /api/personal/:id
+// Erstelle den WebSocket-Server auf dem Pfad '/live'
+const wss = new WebSocketServer({ noServer: true });
 
-3. Geräte-Management
-  - GET /api/gerate
-  - POST /api/gerate
-  - PUT /api/gerate/:id
-  - DELETE /api/gerate/:id
+// Variablen aus den Seed-Daten laden mit Sicherheits-Fallbacks
+let personnel = seedData.personnel ? [...seedData.personnel] : [];
+let equipment = seedData.equipment ? [...seedData.equipment] : [];
 
-4. Admin-Zentrale
-  - GET /api/admin/stats
-  - GET /api/admin/einsatzstunden-chart
-  - GET /api/admin/letzte-einsatze
-  - PUT /api/admin/einstellungen
-*/
+// Sicherheits-Fallback für die in seedData fehlenden Arrays (verhindert den "not iterable" Fehler):
+let incidents = seedData.incidents ? [...seedData.incidents] : [];
+let pressureLogs = seedData.pressureLogs ? [...seedData.pressureLogs] : [];
+let alerts = seedData.alerts ? [...seedData.alerts] : [];
+let settings = seedData.settings ? { ...seedData.settings } : {
+  stationName: "Hauptwache",
+  maxMissionDurationMin: 30,
+  warningPressureBar: 60
+};
 
-let personnel = [...seedData.personnel];
-let equipment = [...seedData.equipment];
-let incidents = [...seedData.incidents];
-let teams = [...seedData.teams];
-let pressureLogs = [...seedData.pressureLogs];
-let alerts = [...seedData.alerts];
-let settings = { ...seedData.settings };
+// Spezial-Mapping für die Teams, damit die IDs einheitlich sind:
+let teams = seedData.teams ? seedData.teams.map(t => {
+  // Falls im Seed-Team 'memberIds' statt 'members' steht, mappen wir das für dein Frontend zu Klarnamen
+  const idsToMap = t.memberIds || t.members || [];
+  const memberNames = idsToMap.map(id => {
+    const person = personnel.find(p => p.id === id);
+    return person ? person.name : `Unbekannt (${id})`;
+  });
 
+  return {
+    id: parseInt(t.id),
+    name: t.name,
+    members: memberNames, // Dein Svelte-Frontend bekommt so saubere Strings geliefert
+    startPressure: parseInt(t.startPressure) || 300,
+    currentPressure: parseInt(t.currentPressure) || 300,
+    startTime: t.startedAt ? Date.parse(t.startedAt) : Date.now(),
+    lastCheckTime: Date.now(),
+    status: t.status || 'active'
+  };
+}) : [];
+// --- WEBSOCKET LOGIK ---
+const clients = new Set();
 
-app.get('/', (req, res) => {
-  res.json('Hallo Welt');
+wss.on('connection', (ws) => {
+  clients.add(ws);
+  console.log(`Client verbunden. Aktive Verbindungen: ${clients.size}`);
+
+  // Sende dem neu verbundenen Client sofort die aktuellen Trupps
+  const activeTeams = teams.filter(t => t.status !== 'ended');
+  ws.send(JSON.stringify(activeTeams));
+
+  ws.on('close', () => {
+    clients.delete(ws);
+    console.log(`Client getrennt. Aktive Verbindungen: ${clients.size}`);
+  });
 });
 
-//1. Live-Cockpit
-// 1. Live-Cockpit & Truppverwaltung
+// Hilfsfunktion: Schickt die aktuellen Trupps an ALLE angemeldeten Frontends
+function broadcastTeams() {
+  const activeTeams = teams.filter(t => t.status !== 'ended');
+  const data = JSON.stringify(activeTeams);
+
+  for (const client of clients) {
+    if (client.readyState === 1) { // 1 = OPEN
+      client.send(data);
+    }
+  }
+}
+
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+
+  if (pathname === '/live') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+
+// --- 1. Live-Cockpit Routen ---
 
 app.get('/api/live/trupps', (req, res) => {
   const activeTeams = teams.filter(t => t.status !== 'ended');
@@ -63,26 +105,33 @@ app.post('/api/live/trupps', (req, res) => {
     return res.status(400).json({ error: "Ein Trupp muss aus mindestens 2 Personen bestehen." });
   }
 
+  const memberNames = members.map(id => {
+    const person = personnel.find(p => p.id === id);
+    return person ? person.name : `Unbekannt (${id})`;
+  });
+
   const newTrupp = {
-    id: teams.length > 0 ? Math.max(...teams.map(t => t.id)) + 1 : 1,
+    id: teams.length > 0 ? Math.max(...teams.map(t => parseInt(t.id))) + 1 : 1,
     name: name || `Trupp ${teams.length + 1}`,
-    members,
+    members: memberNames,
     startPressure: parseInt(startPressure) || 300,
     currentPressure: parseInt(startPressure) || 300,
-    startTime: Date.now(), // Absolutzeit als Timestamp
+    startTime: Date.now(),
     lastCheckTime: Date.now(),
     status: 'active'
   };
 
   teams.push(newTrupp);
+
+  broadcastTeams();
+
   res.status(201).json(newTrupp);
 });
 
-// Druck aktualisieren
 app.put('/api/live/trupps/:id/druck', (req, res) => {
   const teamId = parseInt(req.params.id);
   const { currentPressure } = req.body;
-  const trupp = teams.find(t => t.id === teamId);
+  const trupp = teams.find(t => parseInt(t.id) === teamId);
 
   if (!trupp) return res.status(404).json({ error: "Trupp nicht gefunden." });
 
@@ -90,22 +139,26 @@ app.put('/api/live/trupps/:id/druck', (req, res) => {
   trupp.lastCheckTime = Date.now();
   trupp.status = trupp.currentPressure < 100 ? 'warning' : 'active';
 
+  broadcastTeams();
+
   res.json(trupp);
 });
 
-// Trupp löschen / Einsatz beenden
 app.delete('/api/live/trupps/:id', (req, res) => {
   const teamId = parseInt(req.params.id);
-  const index = teams.findIndex(t => t.id === teamId);
+  const index = teams.findIndex(t => parseInt(t.id) === teamId);
 
   if (index === -1) {
     return res.status(404).json({ error: "Trupp nicht gefunden." });
   }
 
-  // Löscht den Trupp komplett aus dem aktiven Array
   teams.splice(index, 1);
+
+  broadcastTeams();
+
   res.json({ message: `Trupp erfolgreich gelöscht.`, id: teamId });
 });
+
 app.post('/api/live/warnungen', (req, res) => {
   const { teamId, message, type } = req.body;
 
@@ -121,7 +174,9 @@ app.post('/api/live/warnungen', (req, res) => {
   alerts.push(newAlert);
   res.status(201).json(newAlert);
 });
-// 2. Personal & Tauglichkeit
+
+
+// --- 2. Personal & Tauglichkeit ---
 app.get('/api/personal', (req, res) => {
   res.json(personnel);
 });
@@ -174,7 +229,7 @@ app.delete('/api/personal/:id', (req, res) => {
 });
 
 
-// 3. Geräte-Management
+// --- 3. Geräte-Management ---
 app.get('/api/gerate', (req, res) => {
   res.json(equipment);
 });
@@ -222,36 +277,7 @@ app.delete('/api/gerate/:id', (req, res) => {
   res.json({ message: "Gerät erfolgreich aus Inventar entfernt." });
 });
 
-
-// 4. Admin-Zentrale
-app.get('/api/admin/stats', (req, res) => {
-  res.json({
-    totalHours: 248,
-    totalEquipment: equipment.length,
-    totalPersonnel: personnel.length
-  });
-});
-
-app.get('/api/admin/einsatzstunden-chart', (req, res) => {
-  res.json([
-    { month: 'Jan', hours: 18 },
-    { month: 'Feb', hours: 44 },
-    { month: 'Mär', hours: 22 },
-    { month: 'Apr', hours: 35 },
-    { month: 'Mai', hours: 25 }
-  ]);
-});
-
-app.get('/api/admin/letzte-einsatze', (req, res) => {
-  res.json(incidents);
-});
-
-app.put('/api/admin/einstellungen', (req, res) => {
-  settings = { ...settings, ...req.body };
-  res.json({ message: "Einstellungen erfolgreich gespeichert.", settings });
-});
-
-
-app.listen(PORT, () => {
-  console.log(`Server laeuft auf http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server läuft auf http://localhost:${PORT}`);
+  console.log(`WebSocket-Server bereit unter ws://localhost:${PORT}/live`);
 });

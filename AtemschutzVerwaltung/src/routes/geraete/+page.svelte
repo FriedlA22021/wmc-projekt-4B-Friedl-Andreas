@@ -15,6 +15,7 @@
     Wrench,
     Sparkles,
     X,
+    Loader2,
   } from 'lucide-svelte';
 
   type TabType = 'flaschen' | 'masken' | 'geraete';
@@ -215,94 +216,103 @@
 </script>
 
 <div class="space-y-6">
-  <div class="flex items-center justify-between">
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+  >
     <div>
-      <h1 class="text-2xl font-bold text-foreground">Geräte-Management</h1>
+      <h1 class="text-2xl font-bold tracking-tight text-foreground">
+        Geräte-Management
+      </h1>
     </div>
-    <div class="flex items-center gap-2">
-      <button
-        onclick={() => (isModalOpen = true)}
-        class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
-      >
-        + Neues Gerät
-      </button>
-    </div>
+    <button
+      onclick={() => (isModalOpen = true)}
+      class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
+    >
+      <Plus class="h-4 w-4" />
+      Neues Gerät erfassen
+    </button>
   </div>
 
-  <div class="flex gap-2 border-b border-border">
+  <div class="flex gap-2 border-b border-border overflow-x-auto no-scrollbar">
     {#each tabs as tab}
       {@const Icon = tab.icon}
       <button
         onclick={() => (activeTab = tab.id)}
-        class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors {activeTab ===
+        class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap -mb-px cursor-pointer {activeTab ===
         tab.id
           ? 'border-primary text-primary'
           : 'border-transparent text-muted-foreground hover:text-foreground'}"
       >
         <Icon class="h-4 w-4" />
         {tab.label}
-        <span class="rounded-full bg-secondary px-2 py-0.5 text-xs"
-          >{tab.count}</span
+        <span
+          class="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground border border-border/50"
         >
+          {tab.count}
+        </span>
       </button>
     {/each}
   </div>
 
-  <div class="flex gap-4">
-    <div class="relative flex-1">
-      <Search
-        class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-      />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder="Suche nach Inventarnummer..."
-        class="h-10 w-full rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-    </div>
+  <div class="relative max-w-md">
+    <Search
+      class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+    />
+    <input
+      type="text"
+      bind:value={searchQuery}
+      placeholder="Suche nach Inventarnummer oder Modell..."
+      class="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+    />
   </div>
 
   {#if isLoading}
-    <div class="flex h-32 items-center justify-center text-muted-foreground">
-      <p>Lade Gerätedaten aus dem Backend...</p>
+    <div
+      class="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3"
+    >
+      <Loader2 class="h-8 w-8 animate-spin text-primary" />
+      <p class="text-sm font-medium">Lade Gerätedaten aus dem Backend...</p>
     </div>
   {:else if activeTab === 'flaschen'}
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each filteredFlaschen as flasche}
         <div
-          class="rounded-xl border border-border bg-card p-4 flex flex-col justify-between min-h-[220px]"
+          class="rounded-xl border border-border bg-card p-5 flex flex-col justify-between min-h-[230px] shadow-sm transition-all hover:shadow-md"
         >
-          <div>
-            <div class="mb-4 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <Cylinder class="h-5 w-5 text-primary" />
-                <span class="font-mono font-bold text-foreground"
+          <div class="space-y-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Cylinder class="h-4 w-4" />
+                </div>
+                <span
+                  class="font-mono font-bold text-sm tracking-tight text-foreground"
                   >{flasche.inventoryNumber}</span
                 >
               </div>
               <button
                 onclick={() => toggleFlascheStatus(flasche)}
-                class="rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-transform active:scale-95 {flasche.status ===
+                class="rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-transform active:scale-95 border {flasche.status ===
                   'full' || flasche.status === 'ready'
-                  ? 'bg-success/10 text-success border border-success/20'
-                  : 'bg-muted text-muted-foreground border border-transparent'}"
+                  ? 'bg-success/10 text-success border-success/20'
+                  : 'bg-muted text-muted-foreground border-transparent'}"
               >
                 {flasche.status === 'full' || flasche.status === 'ready'
-                  ? '🟢 Einsatzbereit'
-                  : '🔴 Außer Dienst'}
+                  ? '● Einsatzbereit'
+                  : '● Außer Dienst'}
               </button>
             </div>
 
-            <div class="mb-4">
+            <div class="space-y-1.5">
               <div
-                class="mb-1 flex justify-between text-xs text-muted-foreground"
+                class="flex justify-between text-xs text-muted-foreground font-medium"
               >
-                <span>Druck</span>
-                <span>{flasche.pressure ?? 0} / 300 bar</span>
+                <span>Aktueller Druck</span>
+                <span class="font-mono">{flasche.pressure ?? 0} / 300 bar</span>
               </div>
-              <div class="h-3 overflow-hidden rounded-full bg-secondary">
+              <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
                 <div
-                  class="h-full rounded-full transition-all {(flasche.pressure ??
+                  class="h-full rounded-full transition-all duration-500 {(flasche.pressure ??
                     0) > 200
                     ? 'bg-success'
                     : (flasche.pressure ?? 0) > 100
@@ -313,16 +323,16 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 text-xs mb-4">
-              <div class="rounded-lg bg-secondary p-2">
-                <p class="text-muted-foreground">Letzte Prüfung</p>
-                <p class="font-medium text-foreground">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
+                <p class="text-muted-foreground mb-0.5">Letzte Prüfung</p>
+                <p class="font-semibold text-foreground">
                   {formatDate(flasche.lastCheck)}
                 </p>
               </div>
-              <div class="rounded-lg bg-secondary p-2">
-                <p class="text-muted-foreground">Nächste Prüfung</p>
-                <p class="font-medium text-foreground">
+              <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
+                <p class="text-muted-foreground mb-0.5">Nächste Prüfung</p>
+                <p class="font-semibold text-foreground">
                   {formatDate(flasche.nextCheck)}
                 </p>
               </div>
@@ -331,7 +341,7 @@
 
           <button
             onclick={() => handleFlaschePruefung(flasche.id)}
-            class="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary border border-border py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <CalendarCheck class="h-3.5 w-3.5 text-success" />
             Prüfung durchgeführt (5 J.)
@@ -343,39 +353,50 @@
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each filteredMasken as maske}
         <div
-          class="rounded-xl border border-border bg-card p-4 flex flex-col justify-between min-h-[220px]"
+          class="rounded-xl border border-border bg-card p-5 flex flex-col justify-between min-h-[230px] shadow-sm transition-all hover:shadow-md"
         >
-          <div>
-            <div class="mb-4 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <Shield class="h-5 w-5 text-primary" />
-                <span class="font-mono font-bold text-foreground"
+          <div class="space-y-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Shield class="h-4 w-4" />
+                </div>
+                <span
+                  class="font-mono font-bold text-sm tracking-tight text-foreground"
                   >{maske.inventoryNumber}</span
                 >
               </div>
               <button
                 onclick={() => toggleMaskeStatus(maske)}
-                class="rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-transform active:scale-95 {maske.status ===
+                class="rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-transform active:scale-95 border {maske.status ===
                 'ready'
-                  ? 'bg-success/10 text-success border border-success/20'
-                  : 'bg-destructive/10 text-destructive border border-destructive/20'}"
+                  ? 'bg-success/10 text-success border-success/20'
+                  : 'bg-destructive/10 text-destructive border-destructive/20'}"
               >
                 {maske.status === 'ready'
-                  ? '🟢 Einsatzbereit'
-                  : '🔴 Außer Dienst'}
+                  ? '● Einsatzbereit'
+                  : '● Außer Dienst'}
               </button>
             </div>
 
-            <p class="mb-4 text-sm text-muted-foreground">
-              {maske.type || 'Standardmaske'}
-            </p>
+            <div>
+              <p
+                class="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5"
+              >
+                Modell
+              </p>
+              <p class="text-sm font-medium text-foreground">
+                {maske.type || 'Standardmaske'}
+              </p>
+            </div>
 
             <div
-              class="mb-4 flex items-center gap-2 text-sm bg-secondary p-2 rounded-lg"
+              class="flex items-center gap-2 text-xs bg-muted/60 p-2.5 rounded-lg border border-border/30"
             >
-              <Droplets class="h-4 w-4 text-primary" />
-              <span class="text-foreground text-xs"
-                >Gereinigt am: <strong class="text-foreground"
+              <Droplets class="h-4 w-4 text-primary shrink-0" />
+              <span class="text-muted-foreground"
+                >Gereinigt & Desinfiziert: <strong
+                  class="text-foreground font-semibold"
                   >{formatDate(maske.lastCleaning)}</strong
                 ></span
               >
@@ -384,7 +405,7 @@
 
           <button
             onclick={() => handleMaskeReinigung(maske.id)}
-            class="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary border border-border py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <Sparkles class="h-3.5 w-3.5 text-primary" />
             Neu gereinigt
@@ -396,43 +417,53 @@
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {#each filteredGeraete as geraet}
         <div
-          class="rounded-xl border border-border bg-card p-4 flex flex-col justify-between min-h-[220px]"
+          class="rounded-xl border border-border bg-card p-5 flex flex-col justify-between min-h-[230px] shadow-sm transition-all hover:shadow-md"
         >
-          <div>
-            <div class="mb-4 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <Droplets class="h-5 w-5 text-primary" />
-                <span class="font-mono font-bold text-foreground"
+          <div class="space-y-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Droplets class="h-4 w-4" />
+                </div>
+                <span
+                  class="font-mono font-bold text-sm tracking-tight text-foreground"
                   >{geraet.inventoryNumber}</span
                 >
               </div>
               <button
                 onclick={() => toggleGeraetStatus(geraet)}
-                class="rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-transform active:scale-95 {geraet.status ===
+                class="rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-transform active:scale-95 border {geraet.status ===
                 'ready'
-                  ? 'bg-success/10 text-success border border-success/20'
-                  : 'bg-destructive/10 text-destructive border border-destructive/20'}"
+                  ? 'bg-success/10 text-success border-success/20'
+                  : 'bg-destructive/10 text-destructive border-destructive/20'}"
               >
                 {geraet.status === 'ready'
-                  ? '🟢 Einsatzbereit'
-                  : '🔴 Außer Dienst'}
+                  ? '● Einsatzbereit'
+                  : '● Außer Dienst'}
               </button>
             </div>
 
-            <p class="mb-4 text-sm text-muted-foreground">
-              {geraet.type || 'Pressluftatmer'}
-            </p>
+            <div>
+              <p
+                class="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5"
+              >
+                Typ
+              </p>
+              <p class="text-sm font-medium text-foreground">
+                {geraet.type || 'Pressluftatmer'}
+              </p>
+            </div>
 
-            <div class="grid grid-cols-2 gap-2 text-xs mb-4">
-              <div class="rounded-lg bg-secondary p-2">
-                <p class="text-muted-foreground">Letzte Wartung</p>
-                <p class="font-medium text-foreground">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
+                <p class="text-muted-foreground mb-0.5">Letzte Wartung</p>
+                <p class="font-semibold text-foreground">
                   {formatDate(geraet.lastService)}
                 </p>
               </div>
-              <div class="rounded-lg bg-secondary p-2">
-                <p class="text-muted-foreground">Nächste Wartung</p>
-                <p class="font-medium text-foreground">
+              <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
+                <p class="text-muted-foreground mb-0.5">Nächste Wartung</p>
+                <p class="font-semibold text-foreground">
                   {formatDate(geraet.nextService)}
                 </p>
               </div>
@@ -441,7 +472,7 @@
 
           <button
             onclick={() => handleGeraetWartung(geraet.id)}
-            class="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary border border-border py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <Wrench class="h-3.5 w-3.5 text-warning" />
             Jetzt gewartet (1 J.)
@@ -454,37 +485,35 @@
 
 {#if isModalOpen}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-white p-4 animate-in fade-in duration-200"
   >
     <div
-      class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-150"
+      class="w-full max-w-md rounded-xl border border-border bg-popover p-6 shadow-xl text-popover-foreground animate-in zoom-in-95 duration-200"
     >
       <div
-        class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4"
+        class="flex items-center justify-between border-b border-border pb-3 mb-5"
       >
-        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-          Neues Gerät erfassen
-        </h2>
+        <h2 class="text-lg font-bold tracking-tight">Neues Gerät erfassen</h2>
         <button
           onclick={() => (isModalOpen = false)}
-          class="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition-colors hover:bg-slate-100 cursor-pointer"
+          class="text-muted-foreground hover:text-foreground rounded-lg p-1 transition-colors hover:bg-muted cursor-pointer"
         >
           <X class="h-5 w-5" />
         </button>
       </div>
 
       <form onsubmit={handleCreateDevice} class="space-y-4">
-        <div>
+        <div class="space-y-1.5">
           <label
-            class="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-wider"
-            >Gerätetyp wählen</label
+            class="text-xs font-semibold text-muted-foreground block mb-1.5 uppercase tracking-wider"
+            >Ausrüstungskategorie</label
           >
           <div class="grid grid-cols-3 gap-2">
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
               'cylinder'
                 ? 'border-primary bg-primary/5 text-primary shadow-sm'
-                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+                : 'border-input bg-background hover:bg-muted text-muted-foreground'}"
             >
               <input
                 type="radio"
@@ -493,14 +522,14 @@
                 bind:group={newDeviceCategory}
                 class="sr-only"
               />
-              <Cylinder class="h-5 w-5" />
+              <Cylinder class="h-4 w-4" />
               Flasche
             </label>
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
               'mask'
                 ? 'border-primary bg-primary/5 text-primary shadow-sm'
-                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+                : 'border-input bg-background hover:bg-muted text-muted-foreground'}"
             >
               <input
                 type="radio"
@@ -509,14 +538,14 @@
                 bind:group={newDeviceCategory}
                 class="sr-only"
               />
-              <Shield class="h-5 w-5" />
+              <Shield class="h-4 w-4" />
               Maske
             </label>
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
               'breathing_apparatus'
                 ? 'border-primary bg-primary/5 text-primary shadow-sm'
-                : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500'}"
+                : 'border-input bg-background hover:bg-muted text-muted-foreground'}"
             >
               <input
                 type="radio"
@@ -525,16 +554,16 @@
                 bind:group={newDeviceCategory}
                 class="sr-only"
               />
-              <Droplets class="h-5 w-5" />
+              <Droplets class="h-4 w-4" />
               PA-Gerät
             </label>
           </div>
         </div>
 
-        <div>
+        <div class="space-y-1.5">
           <label
             for="invNum"
-            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+            class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
             >Inventarnummer *</label
           >
           <input
@@ -543,14 +572,14 @@
             bind:value={newDeviceInventoryNumber}
             placeholder="z.B. AS-FL-2024"
             required
-            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+            class="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
-        <div>
+        <div class="space-y-1.5">
           <label
             for="devType"
-            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+            class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
             >Typ / Modell</label
           >
           <input
@@ -562,15 +591,15 @@
               : newDeviceCategory === 'mask'
                 ? 'z.B. FPS 7000'
                 : 'z.B. PSS 4000'}
-            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+            class="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
         {#if newDeviceCategory === 'cylinder'}
-          <div class="animate-in slide-in-from-top-2 duration-200">
+          <div class="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
             <label
               for="pressure"
-              class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
+              class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
               >Fülldruck (Bar)</label
             >
             <input
@@ -579,34 +608,34 @@
               min="0"
               max="350"
               bind:value={newDevicePressure}
-              class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+              class="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
         {/if}
 
-        <div>
+        <div class="space-y-1.5">
           <label
             for="status"
-            class="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider"
-            >Zustand</label
+            class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
+            >Anfangs-Zustand</label
           >
           <select
             id="status"
             bind:value={newDeviceStatus}
-            class="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+            class="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="ready">🟢 Einsatzbereit</option>
-            <option value="service">🔴 Außer Dienst</option>
+            <option value="service">🔴 Außer Dienst (Wartung)</option>
           </select>
         </div>
 
         <div
-          class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 mt-6"
+          class="flex items-center justify-end gap-2 border-t border-border pt-4 mt-6"
         >
           <button
             type="button"
             onclick={() => (isModalOpen = false)}
-            class="rounded-lg bg-slate-100 border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+            class="rounded-lg bg-muted border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
             Abbrechen
           </button>
@@ -621,3 +650,14 @@
     </div>
   </div>
 {/if}
+
+<style>
+  /* Versteckt Scrollbars bei schmalen Displays auf der Tab-Leiste */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>

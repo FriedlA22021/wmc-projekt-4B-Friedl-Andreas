@@ -1,10 +1,13 @@
 <script lang="ts">
   import { Radio, User, Trash2 } from 'lucide-svelte';
+  import { useTranslator } from '$lib/shared/settings.svelte.js';
+
+  const settings = useTranslator(); 
 
   interface Trupp {
     id: number;
     name: string;
-    members: (string | number)[]; // Flexibel, falls die IDs mal als String oder Zahl kommen
+    members: (string | number)[];
     startPressure: number;
     currentPressure: number;
     startTime: number;
@@ -20,10 +23,9 @@
     active?: boolean;
   }
 
-  // Svelte 5 Props-Empfang erweitert um 'allMembers'
   let {
     trupp,
-    allMembers = [], // Alle verfügbaren Benutzer werden hier reingereicht
+    allMembers = [],
     onDelete = () => {},
   }: {
     trupp: Trupp;
@@ -71,14 +73,16 @@
       >
         <Radio class="h-4 w-4" />
       </div>
-      <h3 class="text-lg font-bold">{trupp.name}</h3>
+      <h3 class="text-lg font-bold">
+        {trupp.name.startsWith('Trupp')
+          ? `${settings.t('Trupp').value} ${trupp.name.split(' ')[1] || ''}`
+          : settings.t(trupp.name).value}
+      </h3>
     </div>
 
     <div class="flex items-center gap-4">
       <div class="text-right">
-        <p class="font-mono text-2xl font-bold">
-          {trupp.currentPressure}
-        </p>
+        <p class="font-mono text-2xl font-bold">{trupp.currentPressure}</p>
         <p class="text-xs text-muted-foreground">bar</p>
       </div>
 
@@ -89,7 +93,7 @@
           e.stopPropagation();
           onDelete(trupp.id);
         }}
-        title="Einsatz beenden"
+        title={settings.t('Einsatz beenden').value}
       >
         <Trash2 class="h-4 w-4" />
       </button>
@@ -98,7 +102,9 @@
 
   <div class="mb-4 grid grid-cols-2 gap-3">
     <div class="rounded-lg bg-muted p-2">
-      <p class="text-xs text-muted-foreground">Einsatzzeit</p>
+      <p class="text-xs text-muted-foreground">
+        {settings.t('Einsatzzeit').value}
+      </p>
       <p class="font-mono text-lg font-semibold">
         {formatElapsed(elapsedTime)}
       </p>
@@ -111,7 +117,7 @@
         <p
           class="text-[10px] font-bold text-warning uppercase tracking-wider text-center"
         >
-          Druck prüfen!
+          {settings.t('Druck prüfen!').value}
         </p>
       </div>
     {/if}
@@ -120,12 +126,19 @@
   <div class="flex items-center gap-2 text-sm text-muted-foreground">
     <User class="h-4 w-4" />
     <span>
-      {trupp.members
-        ?.map((id) => {
-          const user = allMembers.find((u) => Number(u.id) === Number(id));
-          return user ? user.name : 'Unbekannt';
-        })
-        .join(' & ') || 'Keine Mitglieder'}
+      {trupp.members?.length
+        ? trupp.members
+            .map((idOrName) => {
+              if (isNaN(Number(idOrName))) {
+                return idOrName;
+              }
+              const user = allMembers.find(
+                (u) => Number(u.id) === Number(idOrName),
+              );
+              return user ? user.name : settings.t('Unbekannt').value;
+            })
+            .join(' & ')
+        : settings.t('Keine Mitglieder').value}
     </span>
   </div>
 </div>

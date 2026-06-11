@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { useTranslator } from '$lib/shared/settings.svelte.js';
+
+  const settings = useTranslator();
   import { page } from '$app/state';
   import {
     Activity,
     Users,
     Package,
     Settings,
-    Shield,
     Flame,
   } from 'lucide-svelte';
 
@@ -13,26 +15,31 @@
     {
       href: '/',
       icon: Activity,
-      label: 'Live-Cockpit',
+      label: settings.t('Startseite').value,
       description: 'Echtzeit-Überwachung',
     },
     {
       href: '/personal',
       icon: Users,
-      label: 'Personal',
+      label: settings.t('Personal').value,
       description: 'Atemschutzträger',
     },
     {
       href: '/geraete',
       icon: Package,
-      label: 'Geräte',
+      label: settings.t('Geräte').value,
       description: 'Inventar & Logistik',
+    },
+    {
+      href: '/settings',
+      icon: Settings,
+      label: settings.t('Einstellungen').value,
+      description: 'Einstellungen',
     },
   ];
 </script>
 
 <aside class="flex w-64 flex-col border-r border-border bg-card">
-  
   <div class="flex items-center gap-3 border-b border-border p-4">
     <div
       class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary"
@@ -44,7 +51,6 @@
     </div>
   </div>
 
-  <!-- Navigation -->
   <nav class="flex-1 space-y-1 p-3">
     {#each navItems as item}
       {@const isActive = page.url.pathname === item.href}

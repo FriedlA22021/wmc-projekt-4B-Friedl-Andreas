@@ -241,19 +241,7 @@ export default {
       nextService: '2027-04-01',
     },
   ],
-  incidents: [
-    {
-      id: 1,
-      code: 'E-2026-032',
-      title: 'Brand Wohnhaus',
-      type: 'Brand',
-      location: 'Musterstrasse 12',
-      status: 'active',
-      startedAt: '2026-05-22T12:17:00.000Z',
-      endedAt: null,
-      notes: 'Live-Einsatz fuer Demo-Daten.',
-    },
-  ],
+
   teams: [
     {
       id: 1,
@@ -282,32 +270,7 @@ export default {
       endedAt: null,
     },
   ],
-  pressureLogs: [
-    { id: 1, teamId: 1, pressure: 220, recordedAt: '2026-05-22T12:35:00.000Z' },
-    { id: 2, teamId: 2, pressure: 180, recordedAt: '2026-05-22T12:35:00.000Z' },
-  ],
-  alerts: [
-    {
-      id: 1,
-      type: 'warning',
-      message: 'Trupp 2 erreicht Rueckzugsschwelle in 5 min',
-      teamId: 2,
-      acknowledged: false,
-      createdAt: '2026-05-22T12:32:15.000Z',
-    },
-    {
-      id: 2,
-      type: 'info',
-      message: 'Trupp 1 Druckcheck bestaetigt',
-      teamId: 1,
-      acknowledged: false,
-      createdAt: '2026-05-22T12:25:30.000Z',
-    },
-  ],
-  settings: {
-    organisationName: 'FF Name der Feuerwehr',
-    language: 'de',
-    defaultStartPressure: 300,
-    defaultReservePressure: 50,
-  },
+
+
+
 };

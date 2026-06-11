@@ -1,7 +1,6 @@
 <script lang="ts">
     import TruppCard from '$lib/components/TruppCard.svelte';
-    import StatCard from '$lib/components/StatCard.svelte';
-    import AlertPanel from '$lib/components/AlertPanel.svelte';
+    import { useTranslator } from '$lib/shared/settings.svelte.js';
     import {
         Users,
         Timer,
@@ -13,14 +12,16 @@
     } from 'lucide-svelte';
     import { onMount } from 'svelte';
 
+    const settings = useTranslator();
+
     interface Trupp {
         id: number;
         name: string;
-        members: string[]; // Wird im Frontend als Namen-Array gebraucht
+        members: string[];
         startPressure: number;
         currentPressure: number;
-        startTime: number; // Als Timestamp für Berechnungen
-        lastCheckTime: number; // Als Timestamp für Berechnungen
+        startTime: number;
+        lastCheckTime: number;
         status: 'active' | 'warning' | 'reserve';
     }
 
@@ -35,7 +36,9 @@
     const CHECK_INTERVAL = 5 * 60 * 1000;
     const TRUPPS_URL = 'http://localhost:3000/api/live/trupps';
     const PERSONAL_URL = 'http://localhost:3000/api/personal';
+    const WS_URL = 'ws://localhost:3000/live';
 
+    // Svelte 5 Runes für State
     let trupps = $state<Trupp[]>([]);
     let backendPersonnel = $state<BackendPerson[]>([]);
 
@@ -49,9 +52,50 @@
     let newStartPressure = $state(300);
     let formError = $state('');
 
+    let socket: WebSocket | null = null;
+
+    // WebSocket Connect mit Auto-Reconnect
+    function connectWebSocket() {
+        socket = new WebSocket(WS_URL);
+
+        socket.onopen = () => {
+            console.log('WebSocket-Verbindung erfolgreich aufgebaut.');
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'TRUPPS_UPDATE' && data.payload) {
+                    trupps = data.payload;
+                } else if (Array.isArray(data)) {
+                    trupps = data;
+                }
+            } catch (err) {
+                console.error(
+                    'Fehler beim Verarbeiten der WebSocket-Nachricht:',
+                    err,
+                );
+            }
+        };
+
+        socket.onclose = () => {
+            console.warn('WebSocket geschlossen. Reconnect in 5s...');
+            setTimeout(() => {
+                connectWebSocket();
+            }, 5000);
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket-Fehler:', error);
+            socket?.close();
+        };
+    }
+
     onMount(() => {
         loadData();
+        connectWebSocket();
 
+        // Intervall für die Überfällig-Warnung (Lokaler Check alle 5 Sek)
         const interval = setInterval(() => {
             const now = Date.now();
             trupps.forEach((trupp) => {
@@ -64,7 +108,10 @@
             });
         }, 5000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            if (socket) socket.close();
+        };
     });
 
     async function loadData() {
@@ -83,7 +130,7 @@
         }
     }
 
-    // Filter für das Formular: Nur einsatzbereite Atemschutzträger
+    // Berechnete Werte via $derived Rune
     let verfuegbareTraeger = $derived(
         (() => {
             const now = new Date();
@@ -128,8 +175,6 @@
             });
 
             if (res.ok) {
-                // Nach dem Update laden wir die Daten frisch, damit der Mapper greift
-                await loadData();
                 selectedIdForPressure = null;
             }
         } catch (err) {
@@ -144,7 +189,6 @@
             return;
         }
 
-        // Für das Backend mappen wir die Namen zurück in IDs
         const ausgewaehlteNamen = [traeger1, traeger2, traeger3].filter(
             (t) => t !== '',
         );
@@ -161,13 +205,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: `Trupp ${nextTruppId}`,
-                    members: memberIds, // Das Backend erwartet IDs im POST
+                    members: memberIds,
                     startPressure: newStartPressure,
                 }),
             });
 
             if (res.ok) {
-                await loadData();
                 traeger1 = '';
                 traeger2 = '';
                 traeger3 = '';
@@ -188,15 +231,15 @@
             !confirm(
                 'Möchtest du diesen Trupp wirklich löschen / Einsatz beenden?',
             )
-        )
+        ) {
             return;
+        }
 
         try {
             const res = await fetch(`${TRUPPS_URL}/${id}`, {
                 method: 'DELETE',
             });
             if (res.ok) {
-                trupps = trupps.filter((t) => t.id !== id);
                 if (selectedIdForPressure === id) selectedIdForPressure = null;
             } else {
                 alert('Fehler beim Löschen des Trupps.');
@@ -208,37 +251,82 @@
     }
 </script>
 
-<div class="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-foreground md:text-3xl">
-            Live-Einsatz-Cockpit
-        </h1>
+<div class="space-y-6 p-4 md:p-6 max-w-7xl mx-auto font-sans">
+    <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4 border-muted"
+    >
+        <div>
+            <h1
+                class="text-2xl font-black tracking-tight text-foreground md:text-3xl uppercase"
+            >
+                {settings.t('Live-Einsatz-Cockpit').value}
+            </h1>
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        <StatCard
-            icon={Users}
-            label="Aktive Trupps"
-            value={activeTruppCount.toString()}
-            color="primary"
-        />
-        <StatCard
-            icon={AlertTriangle}
-            label="Warnungen / Überfällig"
-            value={warningCount.toString()}
-            color={warningCount > 0 ? 'warning' : 'success'}
-        />
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+        <div
+            class="flex items-center justify-between p-4 bg-card rounded-xl border border-muted shadow-sm hover:shadow-md transition-shadow"
+        >
+            <div class="space-y-1">
+                <p
+                    class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                    {settings.t('Aktive Trupps').value}
+                </p>
+                <p class="text-3xl font-black font-mono text-primary">
+                    {activeTruppCount.toString()}
+                </p>
+            </div>
+            <div class="p-3 rounded-lg bg-primary/10 text-primary">
+                <Users size={24} />
+            </div>
+        </div>
+
+        <div
+            class="flex items-center justify-between p-4 bg-card rounded-xl border shadow-sm hover:shadow-md transition-shadow
+            {warningCount > 0
+                ? 'border-destructive bg-destructive/5 animate-pulse'
+                : 'border-muted'}"
+        >
+            <div class="space-y-1">
+                <p
+                    class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                    {settings.t('Warnungen / Überfällig').value}
+                </p>
+                <p
+                    class="text-3xl font-black font-mono {warningCount > 0
+                        ? 'text-destructive'
+                        : 'text-emerald-500'}"
+                >
+                    {warningCount.toString()}
+                </p>
+            </div>
+            <div
+                class="p-3 rounded-lg {warningCount > 0
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-emerald-500/10 text-emerald-500'}"
+            >
+                <AlertTriangle size={24} />
+            </div>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div class="space-y-4 lg:col-span-2">
-            <h2 class="text-lg font-semibold text-foreground">
-                Aktive Truppüberwachung
+        <div class="space-y-4 lg:col-span-3">
+            <h2
+                class="text-lg font-bold uppercase tracking-wide text-foreground flex items-center gap-2"
+            >
+                <span class="h-4 w-1 bg-primary rounded"></span>
+                {settings.t('Aktive Truppüberwachung').value}
             </h2>
 
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {#each trupps as trupp (trupp.id)}
-                    <div class="flex flex-col gap-2">
+                    <div
+                        class="flex flex-col justify-between bg-card rounded-xl border border-muted p-1 shadow-sm hover:border-primary/40 transition-colors"
+                    >
                         <div
                             role="button"
                             tabindex="0"
@@ -262,25 +350,27 @@
                             />
                         </div>
 
-                        <div class="mt-1 px-1">
+                        <div
+                            class="mt-auto p-2 border-t border-muted/50 bg-muted/10 rounded-b-lg"
+                        >
                             {#if selectedIdForPressure === trupp.id}
                                 <div
-                                    class="flex items-center justify-between gap-2 bg-muted/50 p-2 rounded-lg"
+                                    class="flex items-center justify-between gap-2 bg-background p-1.5 rounded-lg border border-primary/30"
                                 >
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1.5">
                                         <span
-                                            class="text-xs font-semibold text-primary"
-                                            >Aktueller Druck:</span
+                                            class="text-[11px] font-bold text-primary uppercase"
+                                            >Druck:</span
                                         >
                                         <input
                                             type="number"
                                             min="0"
                                             max="350"
                                             bind:value={tempPressureInput}
-                                            class="w-20 rounded-md border bg-background px-2 py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                                            class="w-16 rounded border bg-muted px-1.5 py-0.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary"
                                         />
                                         <span
-                                            class="text-xs text-muted-foreground"
+                                            class="text-[10px] text-muted-foreground font-semibold"
                                             >bar</span
                                         >
                                     </div>
@@ -290,32 +380,40 @@
                                                 e.stopPropagation();
                                                 savePressure(trupp.id);
                                             }}
-                                            class="rounded-md bg-primary p-1.5 text-primary-foreground hover:bg-primary/90 cursor-pointer"
-                                            ><Check size={16} /></button
+                                            class="rounded bg-emerald-500 p-1 text-white hover:bg-emerald-600 cursor-pointer transition-colors"
+                                            title="Speichern"
                                         >
+                                            <Check size={14} />
+                                        </button>
                                         <button
                                             onclick={(e) => {
                                                 e.stopPropagation();
                                                 selectedIdForPressure = null;
                                             }}
-                                            class="rounded-md bg-muted p-1.5 text-muted-foreground hover:bg-muted-foreground/20 cursor-pointer"
-                                            ><X size={16} /></button
+                                            class="rounded bg-muted p-1 text-muted-foreground hover:bg-muted-foreground/20 cursor-pointer transition-colors"
+                                            title="Abbrechen"
                                         >
+                                            <X size={14} />
+                                        </button>
                                     </div>
                                 </div>
                             {:else}
                                 <div
-                                    class="flex items-center justify-between text-xs text-muted-foreground"
+                                    class="flex items-center justify-between text-[11px] text-muted-foreground px-1"
                                 >
-                                    <span class="flex items-center gap-1"
-                                        ><Gauge size={14} /> Karte anklicken zum
-                                        Ändern</span
+                                    <span
+                                        class="flex items-center gap-1 opacity-70"
                                     >
+                                        <Gauge size={12} />
+                                        {settings.t('Klicken zum Ändern').value}
+                                    </span>
                                     {#if Date.now() - trupp.lastCheckTime > CHECK_INTERVAL && trupp.status === 'active'}
                                         <span
-                                            class="flex items-center gap-1 font-semibold text-destructive animate-pulse"
-                                            ><Timer size={12} /> Abfrage überfällig!</span
+                                            class="flex items-center gap-1 font-bold text-destructive animate-pulse bg-destructive/10 px-1.5 py-0.5 rounded"
                                         >
+                                            <Timer size={12} />
+                                            {settings.t('Überfällig!').value}
+                                        </span>
                                     {/if}
                                 </div>
                             {/if}
@@ -329,158 +427,176 @@
                             showForm = true;
                             formError = '';
                         }}
-                        class="group relative flex h-full min-h-[180px] flex-col items-center justify-center gap-3 overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/5 transition-all hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                        class="group flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 transition-all hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                     >
                         <div
-                            class="relative flex h-12 w-12 items-center justify-center rounded-full bg-muted group-hover:bg-primary group-hover:text-primary-foreground"
+                            class="flex h-12 w-12 items-center justify-center rounded-full bg-muted group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                         >
-                            <Plus size={28} strokeWidth={2.5} />
+                            <Plus size={24} strokeWidth={2.5} />
                         </div>
-                        <div class="relative flex flex-col items-center">
+                        <div class="flex flex-col items-center">
                             <span
-                                class="text-sm font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary"
-                                >Neuer Trupp</span
+                                class="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary"
                             >
-                            <span class="text-xs text-muted-foreground/60"
-                                >Registrieren als Trupp {nextTruppId}</span
+                                {settings.t('Neuer Trupp').value}
+                            </span>
+                            <span
+                                class="text-[11px] text-muted-foreground/60 mt-0.5"
                             >
+                                {settings.t('Registrieren als Trupp').value}
+                                {nextTruppId}
+                            </span>
                         </div>
                     </button>
                 {:else}
                     <div
-                        class="flex flex-col gap-3 rounded-xl border-2 border-primary/40 bg-card p-4 shadow-md"
+                        class="flex flex-col gap-3 rounded-xl border-2 border-primary/40 bg-card p-4 shadow-md transition-all"
                     >
                         <div
-                            class="flex items-center justify-between border-b pb-2"
+                            class="flex items-center justify-between border-b pb-2 border-muted"
                         >
                             <h3
-                                class="text-sm font-bold uppercase tracking-wider text-primary"
+                                class="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5"
                             >
-                                Trupp {nextTruppId} anlegen
+                                <span class="h-2 w-2 rounded-full bg-primary"
+                                ></span>
+                                {settings.t('Trupp').value}
+                                {nextTruppId}
+                                {settings.t('anlegen').value}
                             </h3>
                             <button
                                 onclick={() => (showForm = false)}
-                                class="text-muted-foreground hover:text-foreground cursor-pointer"
-                                ><X size={16} /></button
+                                class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                             >
+                                <X size={16} />
+                            </button>
                         </div>
 
                         {#if formError}
                             <div
-                                class="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 font-medium"
+                                class="text-[11px] text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 font-semibold"
                             >
-                                {formError}
+                                {settings.t(formError).value}
                             </div>
                         {/if}
 
                         <div class="space-y-1">
                             <label
-                                class="block text-xs font-medium text-muted-foreground"
-                                >Atemschutzträger 1</label
+                                class="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
                             >
+                                {settings.t('Atemschutzträger 1').value} *
+                            </label>
                             <select
                                 bind:value={traeger1}
-                                class="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                                class="w-full rounded-md border border-muted bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                             >
-                                <option value="">-- Bitte wählen --</option>
+                                <option value=""
+                                    >-- {settings.t('Bitte wählen').value} --</option
+                                >
                                 {#each verfuegbareTraeger as träger}
                                     <option
                                         value={träger}
                                         disabled={träger === traeger2 ||
                                             träger === traeger3}
-                                        >{träger}</option
                                     >
+                                        {träger}
+                                    </option>
                                 {/each}
                             </select>
                         </div>
 
                         <div class="space-y-1">
                             <label
-                                class="block text-xs font-medium text-muted-foreground"
-                                >Atemschutzträger 2</label
+                                class="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
                             >
+                                {settings.t('Atemschutzträger 2').value} *
+                            </label>
                             <select
                                 bind:value={traeger2}
-                                class="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                                class="w-full rounded-md border border-muted bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                             >
-                                <option value="">-- Bitte wählen --</option>
+                                <option value=""
+                                    >-- {settings.t('Bitte wählen').value} --</option
+                                >
                                 {#each verfuegbareTraeger as träger}
                                     <option
                                         value={träger}
                                         disabled={träger === traeger1 ||
                                             träger === traeger3}
-                                        >{träger}</option
                                     >
+                                        {träger}
+                                    </option>
                                 {/each}
                             </select>
                         </div>
 
                         <div class="space-y-1">
                             <label
-                                class="block text-xs font-medium text-muted-foreground"
-                                >Atemschutzträger 3 (Optional)</label
+                                class="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
                             >
+                                {settings.t('Atemschutzträger 3 (Optional)')
+                                    .value}
+                            </label>
                             <select
                                 bind:value={traeger3}
-                                class="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                                class="w-full rounded-md border border-muted bg-background px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                             >
-                                <option value="">-- Keine Auswahl --</option>
+                                <option value=""
+                                    >-- {settings.t('Keine Auswahl').value} --</option
+                                >
                                 {#each verfuegbareTraeger as träger}
                                     <option
                                         value={träger}
                                         disabled={träger === traeger1 ||
                                             träger === traeger2}
-                                        >{träger}</option
                                     >
+                                        {träger}
+                                    </option>
                                 {/each}
                             </select>
                         </div>
 
                         <div class="space-y-1">
                             <label
-                                class="block text-xs font-medium text-muted-foreground"
-                                >Niedrigster Druck (bar)</label
+                                class="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
                             >
+                                {settings.t('Niedrigster Druck (bar)').value}
+                            </label>
                             <input
                                 type="number"
                                 bind:value={newStartPressure}
                                 min="0"
                                 max="350"
-                                class="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                                class="w-full rounded-md border border-muted bg-background px-2.5 py-1.5 text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
                             />
                         </div>
 
                         <div class="mt-2 flex gap-2">
                             <button
                                 onclick={addTrupp}
-                                class="flex flex-1 items-center justify-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer"
-                                ><Check size={14} /> Aktivieren</button
+                                class="flex flex-1 items-center justify-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 cursor-pointer transition-colors uppercase tracking-wider"
                             >
+                                <Check size={14} />
+                                {settings.t('Aktivieren').value}
+                            </button>
                             <button
                                 onclick={() => (showForm = false)}
-                                class="rounded-md border bg-background px-3 py-2 text-xs font-medium hover:bg-muted cursor-pointer"
-                                >Abbrechen</button
+                                class="rounded-md border border-muted bg-background px-3 py-2 text-xs font-medium hover:bg-muted cursor-pointer transition-colors"
                             >
+                                {settings.t('Abbrechen').value}
+                            </button>
                         </div>
                     </div>
                 {/if}
             </div>
         </div>
-
-        <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-foreground">
-                Warnungen & Ereignisse
-            </h2>
-            <AlertPanel />
-        </div>
     </div>
 </div>
 
 <style>
-    .clickable-card {
-        transition: opacity 0.2s ease;
-    }
-    .clickable-card:hover {
-        opacity: 0.9;
+    /* Saubere HTL-Style-Overrides für bessere Klick-Effekte */
+    .clickable-card:focus-visible {
+        outline: 2px solid var(--primary);
+        border-radius: 0.75rem;
     }
 </style>

@@ -1,8 +1,11 @@
 <script lang="ts">
     import '../app.css';
     import Sidebar from '$lib/components/Sidebar.svelte';
+
     import Header from '$lib/components/Header.svelte';
 
+    import { setSettingsContext } from '$lib/shared/settings.svelte.js';
+    const settings = setSettingsContext();
     let { children } = $props();
 </script>
 
