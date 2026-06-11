@@ -38,7 +38,6 @@
     const PERSONAL_URL = 'http://localhost:3000/api/personal';
     const WS_URL = 'ws://localhost:3000/live';
 
-    // Svelte 5 Runes für State
     let trupps = $state<Trupp[]>([]);
     let backendPersonnel = $state<BackendPerson[]>([]);
 
@@ -54,7 +53,6 @@
 
     let socket: WebSocket | null = null;
 
-    // WebSocket Connect mit Auto-Reconnect
     function connectWebSocket() {
         socket = new WebSocket(WS_URL);
 
@@ -95,7 +93,6 @@
         loadData();
         connectWebSocket();
 
-        // Intervall für die Überfällig-Warnung (Lokaler Check alle 5 Sek)
         const interval = setInterval(() => {
             const now = Date.now();
             trupps.forEach((trupp) => {
@@ -130,7 +127,6 @@
         }
     }
 
-    // Berechnete Werte via $derived Rune
     let verfuegbareTraeger = $derived(
         (() => {
             const now = new Date();

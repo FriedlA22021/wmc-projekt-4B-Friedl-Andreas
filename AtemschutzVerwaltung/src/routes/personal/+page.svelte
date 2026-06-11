@@ -28,7 +28,6 @@
 
   const BASE_URL = 'http://localhost:3000/api/personal';
 
-  // --- States ---
   let personnel = $state<BackendPerson[]>([]);
   let isLoading = $state(true);
   let isSaving = $state(false);
@@ -44,12 +43,10 @@
   let isDeleteModalOpen = $state(false);
   let personToDelete = $state<{ id: number; name: string } | null>(null);
 
-  // --- Lifecycle ---
   onMount(() => {
     loadData();
   });
 
-  // --- API Functions ---
   async function loadData() {
     try {
       isLoading = true;
@@ -144,7 +141,6 @@
     }
   }
 
-  // --- Helper Functions ---
   function getG26Status(
     validUntilStr: string,
   ): 'valid' | 'expiring' | 'expired' {
@@ -182,7 +178,6 @@
       .join('');
   }
 
-  // --- Modal Handlers ---
   function openAddModal() {
     isModalOpen = true;
   }
@@ -204,7 +199,6 @@
     isDeleteModalOpen = false;
   }
 
-  // --- Derived States (Svelte 5) ---
   const filteredPersonnel = $derived(
     personnel.filter((p) => {
       const matchesSearch = p.name
@@ -228,7 +222,6 @@
     personnel.filter((p) => getG26Status(p.g26ValidUntil) === 'expired').length,
   );
 
-  // --- Configs ---
   const statusConfig = {
     valid: {
       icon: CheckCircle,

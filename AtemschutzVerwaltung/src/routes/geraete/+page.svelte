@@ -6,11 +6,6 @@
     Cylinder,
     Shield,
     Droplets,
-    CheckCircle,
-    AlertTriangle,
-    XCircle,
-    Clock,
-    Filter,
     CalendarCheck,
     Wrench,
     Sparkles,
@@ -26,7 +21,6 @@
   let allEquipment = $state<any[]>([]);
   let isLoading = $state(true);
 
-  // --- State für das "Neues Gerät"-Modal ---
   let isModalOpen = $state(false);
   let newDeviceCategory = $state<'cylinder' | 'mask' | 'breathing_apparatus'>(
     'cylinder',
@@ -36,7 +30,6 @@
   let newDevicePressure = $state<number | null>(300);
   let newDeviceStatus = $state('ready');
 
-  // Daten vom Backend laden
   async function loadData() {
     try {
       const res = await fetch('http://localhost:3000/api/gerate');
@@ -52,7 +45,6 @@
     loadData();
   });
 
-  // Hilfsfunktion: Schickt die Updates an das Express-Backend (PUT)
   async function updateEquipment(id: number, updatedFields: object) {
     try {
       const res = await fetch(`http://localhost:3000/api/gerate/${id}`, {
@@ -69,7 +61,6 @@
     }
   }
 
-  // Neues Gerät an das Backend senden (POST)
   async function handleCreateDevice(e: Event) {
     e.preventDefault();
     if (!newDeviceInventoryNumber.trim()) {
@@ -96,14 +87,12 @@
         const createdItem = await res.json();
         allEquipment = [...allEquipment, createdItem];
 
-        // Modal zurücksetzen und schließen
         isModalOpen = false;
         newDeviceInventoryNumber = '';
         newDeviceType = '';
         newDevicePressure = 300;
         newDeviceStatus = 'ready';
 
-        // Tab automatisch wechseln, um das neue Gerät zu sehen
         if (newDeviceCategory === 'cylinder') activeTab = 'flaschen';
         if (newDeviceCategory === 'mask') activeTab = 'masken';
         if (newDeviceCategory === 'breathing_apparatus') activeTab = 'geraete';
@@ -116,14 +105,12 @@
     }
   }
 
-  // Hilfsfunktion für das heutige Datum im Format YYYY-MM-DD
   function getTodayString(offsetYears = 0): string {
     const d = new Date();
     d.setFullYear(d.getFullYear() + offsetYears);
     return d.toISOString().split('T')[0];
   }
 
-  // Hilfsfunktion zur Anzeige (YYYY-MM-DD -> DD.MM.YYYY)
   function formatDate(dateStr: string | null): string {
     if (!dateStr) return '—';
     const parts = dateStr.split('-');
@@ -131,7 +118,6 @@
     return `${parts[2]}.${parts[1]}.${parts[0]}`;
   }
 
-  // --- Spezifische Button-Aktionen ---
   function toggleFlascheStatus(flasche: any) {
     const nextStatus = flasche.status === 'full' ? 'empty' : 'full';
     const nextPressure = nextStatus === 'full' ? 300 : 0;
@@ -166,7 +152,6 @@
     });
   }
 
-  // --- Filterung ($derived) ---
   const filteredFlaschen = $derived(
     allEquipment.filter(
       (e) =>
@@ -652,7 +637,6 @@
 {/if}
 
 <style>
-  /* Versteckt Scrollbars bei schmalen Displays auf der Tab-Leiste */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

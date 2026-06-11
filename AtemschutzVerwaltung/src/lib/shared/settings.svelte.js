@@ -1,6 +1,5 @@
 import { setContext, getContext } from 'svelte';
 
-// Dieser Cache speichert jetzt reaktive Svelte-Zustände
 const translationStates = new Map();
 
 async function fetchTranslation(text, targetLang) {
@@ -11,7 +10,7 @@ async function fetchTranslation(text, targetLang) {
         return data.responseData?.translatedText || text;
     } catch (error) {
         console.error("Übersetzungsfehler:", error);
-        return text; // Fallback auf Deutsch bei API-Fehler
+        return text; 
     }
 }
 
@@ -28,24 +27,19 @@ class TranslatorState {
     }
 
     t(text) {
-        // Wenn Deutsch gewählt ist, sofort das Original zurückgeben
         if (this.lang === 'de') return { value: text };
 
         const cacheKey = `${text}_${this.lang}`;
 
-        // Wenn wir für diesen Text + Sprache noch keinen reaktiven State haben, legen wir ihn an
         if (!translationStates.has(cacheKey)) {
-            // Wir erstellen ein reaktives Objekt, das mit '...' startet
             const stateObj = $state({ value: '...' });
             translationStates.set(cacheKey, stateObj);
 
-            // API-Aufruf im Hintergrund starten
             fetchTranslation(text, this.lang).then(translated => {
-                stateObj.value = translated; // Hier wird die UI reaktiv aktualisiert!
+                stateObj.value = translated; 
             });
         }
 
-        // Gib das reaktive Objekt aus dem Cache zurück
         return translationStates.get(cacheKey);
     }
 }
