@@ -12,6 +12,10 @@
     X,
     Loader2,
   } from 'lucide-svelte';
+  // Importiere deinen Translator (Pfade anpassen falls nötig)
+  import { useTranslator } from '$lib/shared/settings.svelte.js';
+
+  const translator = useTranslator();
 
   type TabType = 'flaschen' | 'masken' | 'geraete';
 
@@ -64,7 +68,7 @@
   async function handleCreateDevice(e: Event) {
     e.preventDefault();
     if (!newDeviceInventoryNumber.trim()) {
-      alert('Bitte eine Inventarnummer eingeben.');
+      alert(translator.t('Bitte eine Inventarnummer eingeben.').value);
       return;
     }
 
@@ -98,7 +102,7 @@
         if (newDeviceCategory === 'breathing_apparatus') activeTab = 'geraete';
       } else {
         const errData = await res.json();
-        alert(`Fehler: ${errData.error}`);
+        alert(`${translator.t('Fehler').value}: ${errData.error}`);
       }
     } catch (error) {
       console.error('Fehler beim Erstellen des Geräts:', error);
@@ -177,22 +181,23 @@
     ),
   );
 
+  // Da $derived reaktiv auf translator.lang anspringt, übersetzen sich die Tabs automatisch
   const tabs = $derived([
     {
       id: 'flaschen' as const,
-      label: 'Atemluftflaschen',
+      label: translator.t('Atemluftflaschen').value,
       icon: Cylinder,
       count: allEquipment.filter((e) => e.category === 'cylinder').length,
     },
     {
       id: 'masken' as const,
-      label: 'Masken',
+      label: translator.t('Masken').value,
       icon: Shield,
       count: allEquipment.filter((e) => e.category === 'mask').length,
     },
     {
       id: 'geraete' as const,
-      label: 'Pressluftatmer',
+      label: translator.t('Pressluftatmer').value,
       icon: Droplets,
       count: allEquipment.filter((e) => e.category === 'breathing_apparatus')
         .length,
@@ -201,12 +206,22 @@
 </script>
 
 <div class="space-y-6">
+  <div class="flex justify-end gap-2 text-xs">
+    <button
+      class="px-2 py-1 rounded border bg-muted"
+      onclick={() =>
+        translator.setLanguage(translator.lang === 'de' ? 'en' : 'de')}
+    >
+      Sprache: {translator.lang.toUpperCase()}
+    </button>
+  </div>
+
   <div
     class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
   >
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-foreground">
-        Geräte-Management
+        {translator.t('Geräte-Management').value}
       </h1>
     </div>
     <button
@@ -214,7 +229,7 @@
       class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
     >
       <Plus class="h-4 w-4" />
-      Neues Gerät erfassen
+      {translator.t('Neues Gerät erfassen').value}
     </button>
   </div>
 
@@ -246,7 +261,8 @@
     <input
       type="text"
       bind:value={searchQuery}
-      placeholder="Suche nach Inventarnummer oder Modell..."
+      placeholder={translator.t('Suche nach Inventarnummer oder Modell...')
+        .value}
       class="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
     />
   </div>
@@ -256,7 +272,9 @@
       class="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3"
     >
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      <p class="text-sm font-medium">Lade Gerätedaten aus dem Backend...</p>
+      <p class="text-sm font-medium">
+        {translator.t('Lade Gerätedaten aus dem Backend...').value}
+      </p>
     </div>
   {:else if activeTab === 'flaschen'}
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -283,8 +301,8 @@
                   : 'bg-muted text-muted-foreground border-transparent'}"
               >
                 {flasche.status === 'full' || flasche.status === 'ready'
-                  ? '● Einsatzbereit'
-                  : '● Außer Dienst'}
+                  ? `● ${translator.t('Einsatzbereit').value}`
+                  : `● ${translator.t('Außer Dienst').value}`}
               </button>
             </div>
 
@@ -292,7 +310,7 @@
               <div
                 class="flex justify-between text-xs text-muted-foreground font-medium"
               >
-                <span>Aktueller Druck</span>
+                <span>{translator.t('Aktueller Druck').value}</span>
                 <span class="font-mono">{flasche.pressure ?? 0} / 300 bar</span>
               </div>
               <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -310,13 +328,17 @@
 
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
-                <p class="text-muted-foreground mb-0.5">Letzte Prüfung</p>
+                <p class="text-muted-foreground mb-0.5">
+                  {translator.t('Letzte Prüfung').value}
+                </p>
                 <p class="font-semibold text-foreground">
                   {formatDate(flasche.lastCheck)}
                 </p>
               </div>
               <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
-                <p class="text-muted-foreground mb-0.5">Nächste Prüfung</p>
+                <p class="text-muted-foreground mb-0.5">
+                  {translator.t('Nächste Prüfung').value}
+                </p>
                 <p class="font-semibold text-foreground">
                   {formatDate(flasche.nextCheck)}
                 </p>
@@ -329,7 +351,7 @@
             class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <CalendarCheck class="h-3.5 w-3.5 text-success" />
-            Prüfung durchgeführt (5 J.)
+            {translator.t('Prüfung durchgeführt (5 J.)').value}
           </button>
         </div>
       {/each}
@@ -359,8 +381,8 @@
                   : 'bg-destructive/10 text-destructive border-destructive/20'}"
               >
                 {maske.status === 'ready'
-                  ? '● Einsatzbereit'
-                  : '● Außer Dienst'}
+                  ? `● ${translator.t('Einsatzbereit').value}`
+                  : `● ${translator.t('Außer Dienst').value}`}
               </button>
             </div>
 
@@ -368,10 +390,10 @@
               <p
                 class="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5"
               >
-                Modell
+                {translator.t('Modell').value}
               </p>
               <p class="text-sm font-medium text-foreground">
-                {maske.type || 'Standardmaske'}
+                {maske.type || translator.t('Standardmaske').value}
               </p>
             </div>
 
@@ -379,12 +401,12 @@
               class="flex items-center gap-2 text-xs bg-muted/60 p-2.5 rounded-lg border border-border/30"
             >
               <Droplets class="h-4 w-4 text-primary shrink-0" />
-              <span class="text-muted-foreground"
-                >Gereinigt & Desinfiziert: <strong
-                  class="text-foreground font-semibold"
+              <span class="text-muted-foreground">
+                {translator.t('Gereinigt & Desinfiziert').value}:
+                <strong class="text-foreground font-semibold"
                   >{formatDate(maske.lastCleaning)}</strong
-                ></span
-              >
+                >
+              </span>
             </div>
           </div>
 
@@ -393,7 +415,7 @@
             class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <Sparkles class="h-3.5 w-3.5 text-primary" />
-            Neu gereinigt
+            {translator.t('Neu gereinigt').value}
           </button>
         </div>
       {/each}
@@ -423,8 +445,8 @@
                   : 'bg-destructive/10 text-destructive border-destructive/20'}"
               >
                 {geraet.status === 'ready'
-                  ? '● Einsatzbereit'
-                  : '● Außer Dienst'}
+                  ? `● ${translator.t('Einsatzbereit').value}`
+                  : `● ${translator.t('Außer Dienst').value}`}
               </button>
             </div>
 
@@ -432,22 +454,26 @@
               <p
                 class="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5"
               >
-                Typ
+                {translator.t('Typ').value}
               </p>
               <p class="text-sm font-medium text-foreground">
-                {geraet.type || 'Pressluftatmer'}
+                {geraet.type || translator.t('Pressluftatmer').value}
               </p>
             </div>
 
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
-                <p class="text-muted-foreground mb-0.5">Letzte Wartung</p>
+                <p class="text-muted-foreground mb-0.5">
+                  {translator.t('Letzte Wartung').value}
+                </p>
                 <p class="font-semibold text-foreground">
                   {formatDate(geraet.lastService)}
                 </p>
               </div>
               <div class="rounded-lg bg-muted/50 border border-border/30 p-2.5">
-                <p class="text-muted-foreground mb-0.5">Nächste Wartung</p>
+                <p class="text-muted-foreground mb-0.5">
+                  {translator.t('Nächste Wartung').value}
+                </p>
                 <p class="font-semibold text-foreground">
                   {formatDate(geraet.nextService)}
                 </p>
@@ -460,7 +486,7 @@
             class="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-muted border border-input py-2 text-xs font-semibold text-foreground hover:bg-secondary hover:text-accent-foreground transition-colors cursor-pointer"
           >
             <Wrench class="h-3.5 w-3.5 text-warning" />
-            Jetzt gewartet (1 J.)
+            {translator.t('Jetzt gewartet (1 J.)').value}
           </button>
         </div>
       {/each}
@@ -478,7 +504,9 @@
       <div
         class="flex items-center justify-between border-b border-border pb-3 mb-5"
       >
-        <h2 class="text-lg font-bold tracking-tight">Neues Gerät erfassen</h2>
+        <h2 class="text-lg font-bold tracking-tight">
+          {translator.t('Neues Gerät erfassen').value}
+        </h2>
         <button
           onclick={() => (isModalOpen = false)}
           class="text-muted-foreground hover:text-foreground rounded-lg p-1 transition-colors hover:bg-muted cursor-pointer"
@@ -491,8 +519,9 @@
         <div class="space-y-1.5">
           <label
             class="text-xs font-semibold text-muted-foreground block mb-1.5 uppercase tracking-wider"
-            >Ausrüstungskategorie</label
           >
+            {translator.t('Ausrüstungskategorie').value}
+          </label>
           <div class="grid grid-cols-3 gap-2">
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
@@ -508,7 +537,7 @@
                 class="sr-only"
               />
               <Cylinder class="h-4 w-4" />
-              Flasche
+              {translator.t('Flasche').value}
             </label>
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
@@ -524,7 +553,7 @@
                 class="sr-only"
               />
               <Shield class="h-4 w-4" />
-              Maske
+              {translator.t('Maske').value}
             </label>
             <label
               class="flex flex-col items-center gap-2 p-3 rounded-lg border text-center cursor-pointer transition-all text-xs font-semibold {newDeviceCategory ===
@@ -540,7 +569,7 @@
                 class="sr-only"
               />
               <Droplets class="h-4 w-4" />
-              PA-Gerät
+              {translator.t('PA-Gerät').value}
             </label>
           </div>
         </div>
@@ -549,8 +578,9 @@
           <label
             for="invNum"
             class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
-            >Inventarnummer *</label
           >
+            {translator.t('Inventarnummer').value} *
+          </label>
           <input
             id="invNum"
             type="text"
@@ -565,8 +595,9 @@
           <label
             for="devType"
             class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
-            >Typ / Modell</label
           >
+            {translator.t('Typ / Modell').value}
+          </label>
           <input
             id="devType"
             type="text"
@@ -585,8 +616,9 @@
             <label
               for="pressure"
               class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
-              >Fülldruck (Bar)</label
             >
+              {translator.t('Fülldruck (Bar)').value}
+            </label>
             <input
               id="pressure"
               type="number"
@@ -602,15 +634,20 @@
           <label
             for="status"
             class="text-xs font-semibold text-muted-foreground block uppercase tracking-wider"
-            >Anfangs-Zustand</label
           >
+            {translator.t('Anfangs-Zustand').value}
+          </label>
           <select
             id="status"
             bind:value={newDeviceStatus}
             class="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
-            <option value="ready">🟢 Einsatzbereit</option>
-            <option value="service">🔴 Außer Dienst (Wartung)</option>
+            <option value="ready"
+              >🟢 {translator.t('Einsatzbereit').value}</option
+            >
+            <option value="service"
+              >🔴 {translator.t('Außer Dienst (Wartung)').value}</option
+            >
           </select>
         </div>
 
@@ -622,13 +659,13 @@
             onclick={() => (isModalOpen = false)}
             class="rounded-lg bg-muted border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
-            Abbrechen
+            {translator.t('Abbrechen').value}
           </button>
           <button
             type="submit"
             class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 active:scale-95 cursor-pointer"
           >
-            Gerät speichern
+            {translator.t('Gerät speichern').value}
           </button>
         </div>
       </form>

@@ -156,7 +156,7 @@
   }
 
   function formatDate(dateStr: string): string {
-    if (!dateStr) return 'Kein Datum';
+    if (!dateStr) return settings.t('Kein Datum').value;
     try {
       return new Date(dateStr).toLocaleDateString('de-DE', {
         day: '2-digit',
@@ -222,26 +222,26 @@
     personnel.filter((p) => getG26Status(p.g26ValidUntil) === 'expired').length,
   );
 
-  const statusConfig = {
+  const statusConfig = $derived({
     valid: {
       icon: CheckCircle,
       color: 'text-success',
       bg: 'bg-success/10 border-success/20',
-      label: 'Gültig',
+      label: settings.t('Gültig').value,
     },
     expiring: {
       icon: AlertTriangle,
       color: 'text-warning',
       bg: 'bg-warning/10 border-warning/20',
-      label: 'Läuft ab',
+      label: settings.t('Läuft ab').value,
     },
     expired: {
       icon: XCircle,
       color: 'text-destructive',
       bg: 'bg-destructive/10 border-destructive/20',
-      label: 'Abgelaufen',
+      label: settings.t('Abgelaufen').value,
     },
-  };
+  });
 </script>
 
 <div class="space-y-6">
@@ -250,7 +250,7 @@
   >
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-foreground">
-        Personal & Tauglichkeit
+        {settings.t('Personal & Tauglichkeit').value}
       </h1>
     </div>
     <button
@@ -258,7 +258,7 @@
       class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
     >
       <UserPlus class="h-4 w-4" />
-      Neue Person
+      {settings.t('Neue Person').value}
     </button>
   </div>
 
@@ -267,7 +267,9 @@
       class="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3"
     >
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      <p class="text-sm font-medium">Lade Daten aus der Datenbank...</p>
+      <p class="text-sm font-medium">
+        {settings.t('Lade Daten aus der Datenbank...').value}
+      </p>
     </div>
   {:else if errorMessage}
     <div
@@ -275,7 +277,9 @@
     >
       <AlertTriangle class="h-5 w-5 shrink-0 mt-0.5" />
       <div>
-        <p class="font-semibold text-sm">Fehler bei der Datenbank-Verbindung</p>
+        <p class="font-semibold text-sm">
+          {settings.t('Fehler bei der Datenbank-Verbindung').value}
+        </p>
         <p class="text-xs opacity-90 mt-0.5">{errorMessage}</p>
       </div>
     </div>
@@ -294,7 +298,7 @@
             <p
               class="text-sm font-medium text-muted-foreground tracking-wide uppercase"
             >
-              Gültige G26.3
+              {settings.t('Gültige G26.3').value}
             </p>
             <p class="text-3xl font-bold text-success tracking-tight">
               {validCount}
@@ -319,7 +323,7 @@
             <p
               class="text-sm font-medium text-muted-foreground tracking-wide uppercase"
             >
-              Läuft bald ab
+              {settings.t('Läuft bald ab').value}
             </p>
             <p class="text-3xl font-bold text-warning tracking-tight">
               {expiringCount}
@@ -344,7 +348,7 @@
             <p
               class="text-sm font-medium text-muted-foreground tracking-wide uppercase"
             >
-              Gesperrt / Abgelaufen
+              {settings.t('Gesperrt / Abgelaufen').value}
             </p>
             <p class="text-3xl font-bold text-destructive tracking-tight">
               {expiredCount}
@@ -364,7 +368,7 @@
         />
         <input
           type="text"
-          placeholder="Suche nach Name..."
+          placeholder={settings.t('Suche nach Name...').value}
           bind:value={searchQuery}
           class="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-shadow focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -432,7 +436,7 @@
                     <button
                       onclick={() => extendG26(id)}
                       class="p-1 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground text-muted-foreground transition-colors cursor-pointer border border-border/40 shadow-sm"
-                      title="Ab heute um 5 Jahre verlängern"
+                      title={settings.t('Ab heute um 5 Jahre verlängern').value}
                     >
                       <CalendarPlus class="h-3.5 w-3.5" />
                     </button>
@@ -442,7 +446,7 @@
                   <button
                     onclick={() => openDeleteModal(id, name)}
                     class="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                    title="{name} löschen"
+                    title={`${settings.t('Löschen').value} ${name}`}
                   >
                     <Trash2 class="h-4 w-4" />
                   </button>
@@ -455,7 +459,9 @@
                   colspan="4"
                   class="px-5 py-10 text-center text-muted-foreground"
                 >
-                  Keine Personen gefunden, die den Filtern entsprechen.
+                  {settings.t(
+                    'Keine Personen gefunden, die den Filtern entsprechen.',
+                  ).value}
                 </td>
               </tr>
             {/if}
@@ -477,7 +483,8 @@
         class="flex items-center justify-between border-b border-border pb-3 mb-5"
       >
         <h2 class="text-lg font-bold tracking-tight flex items-center gap-2">
-          <UserPlus class="h-5 w-5 text-primary" /> Neue Einsatzkraft
+          <UserPlus class="h-5 w-5 text-primary" />
+          {settings.t('Neue Einsatzkraft').value}
         </h2>
         <button
           onclick={closeAddModal}
@@ -493,7 +500,7 @@
             for="name"
             class="text-xs font-semibold text-muted-foreground tracking-wide uppercase"
           >
-            Name der Person *
+            {settings.t('Name der Person *').value}
           </label>
           <div class="relative">
             <User
@@ -515,7 +522,7 @@
             for="g26"
             class="text-xs font-semibold text-muted-foreground tracking-wide uppercase"
           >
-            Atemschutztauglichkeit gültig bis
+            {settings.t('Atemschutztauglichkeit gültig bis').value}
           </label>
           <input
             id="g26"
@@ -534,14 +541,16 @@
             onclick={closeAddModal}
             class="rounded-lg bg-muted border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
-            Abbrechen
+            {settings.t('Abbrechen').value}
           </button>
           <button
             type="submit"
             disabled={isSaving}
             class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
           >
-            {isSaving ? 'Speichere...' : 'Person speichern'}
+            {isSaving
+              ? settings.t('Speichere...').value
+              : settings.t('Person speichern').value}
           </button>
         </div>
       </form>
@@ -562,14 +571,16 @@
         >
           <Trash2 class="h-5 w-5" />
         </div>
-        <h2 class="text-lg font-bold tracking-tight">Einsatzkraft löschen</h2>
+        <h2 class="text-lg font-bold tracking-tight">
+          {settings.t('Einsatzkraft löschen').value}
+        </h2>
       </div>
 
       <div class="space-y-2 mb-6">
         <p class="text-sm text-muted-foreground leading-relaxed">
-          Bist du sicher, dass du die Person <strong class="text-foreground"
-            >"{personToDelete.name}"</strong
-          > dauerhaft aus der Datenbank entfernen möchtest?
+          {settings.t('Bist du sicher, dass du die Person').value}
+          <strong class="text-foreground">"{personToDelete.name}"</strong>
+          {settings.t('dauerhaft aus der Datenbank entfernen möchtest?').value}
         </p>
       </div>
 
@@ -581,14 +592,14 @@
           onclick={closeDeleteModal}
           class="rounded-lg bg-muted border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
         >
-          Abbrechen
+          {settings.t('Abbrechen').value}
         </button>
         <button
           type="button"
           onclick={confirmDeletePerson}
           class="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 cursor-pointer"
         >
-          Ja, löschen
+          {settings.t('Ja, löschen').value}
         </button>
       </div>
     </div>
